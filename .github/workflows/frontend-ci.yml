@@ -14,6 +14,9 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
 
     steps:
       - name: Checkout repository
@@ -24,6 +27,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -38,5 +42,5 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist
+          folder: frontend/dist
           branch: gh-pages
