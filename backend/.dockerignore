@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+coverage
+tests
+.git
+.gitignore
+*.md
+.eslintrc*
+jest.config.js
+nodemon.json
+.dockerignore
+docker-compose*.yml
