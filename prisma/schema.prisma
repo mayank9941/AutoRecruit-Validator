@@ -1,0 +1,305 @@
+// Prisma Schema for AI Recruitment Platform
+// Per SKILL.md §6: UUIDs for PKs, snake_case for DB columns, Prisma migrations only
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// User & Authentication
+// ============================================================================
+
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String    @unique
+  passwordHash   String    @map("password_hash")
+  firstName      String    @map("first_name")
+  lastName       String    @map("last_name")
+  role           UserRole  @default(RECRUITER)
+  isActive       Boolean   @default(true) @map("is_active")
+  lastLoginAt    DateTime? @map("last_login_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  createdJobs       Job[]
+  refreshTokens     RefreshToken[]
+  documentViewLogs  DocumentViewLog[]
+  importBatches     ImportBatch[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid()) @db.Uuid
+  token       String   @unique
+  userId      String   @map("user_id") @db.Uuid
+  expiresAt   DateTime @map("expires_at")
+  isRevoked   Boolean  @default(false) @map("is_revoked")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+enum UserRole {
+  ADMIN
+  RECRUITER
+  HIRING_MANAGER
+}
+
+// ============================================================================
+// Jobs & Checklists
+// ============================================================================
+
+model Job {
+  id                String       @id @default(uuid()) @db.Uuid
+  title             String
+  postingCode       String       @unique @map("posting_code")
+  description       String?      @db.Text
+  noticeFileUrl     String?      @map("notice_file_url")
+  noticeS3Key       String?      @map("notice_s3_key")
+  requirements      Json?        // Locked checklist (JSONB) — per SKILL.md §6
+  checklistVersion  Int          @default(0) @map("checklist_version")
+  checklistLocked   Boolean      @default(false) @map("checklist_locked")
+  status            JobStatus    @default(DRAFT)
+  createdBy         String       @map("created_by") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  creator           User              @relation(fields: [createdBy], references: [id])
+  applications      Application[]
+  checklistVersions ChecklistVersion[]
+  importBatches     ImportBatch[]
+
+  @@index([postingCode])
+  @@map("jobs")
+}
+
+model ChecklistVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  jobId           String   @map("job_id") @db.Uuid
+  version         Int
+  rules           Json     // The checklist rules at this version (JSONB)
+  lockedAt        DateTime @map("locked_at")
+  lockedBy        String   @map("locked_by") @db.Uuid
+
+  job             Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, version])
+  @@index([jobId])
+  @@map("checklist_versions")
+}
+
+enum JobStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+// ============================================================================
+// Applications & Candidates
+// ============================================================================
+
+model Application {
+  id                  String            @id @default(uuid()) @db.Uuid
+  jobId               String            @map("job_id") @db.Uuid
+  referenceNumber     String            @unique @map("reference_number")
+  referenceValidated  Boolean           @default(false) @map("reference_validated")
+  candidateName       String?           @map("candidate_name")
+  candidateEmail      String?           @map("candidate_email")
+  parsedFormData      Json?             @map("parsed_form_data")      // JSONB — per SKILL.md §6
+  attachmentManifest  Json?             @map("attachment_manifest")   // JSONB — per SKILL.md §6
+  status              ApplicationStatus @default(PENDING)
+  importBatchId       String?           @map("import_batch_id") @db.Uuid
+  processingError     String?           @map("processing_error") @db.Text
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  job                 Job               @relation(fields: [jobId], references: [id])
+  importBatch         ImportBatch?      @relation(fields: [importBatchId], references: [id])
+  matchResults        AiMatchResult[]
+  documents           Document[]
+
+  @@index([referenceNumber])
+  @@index([jobId])
+  @@index([status])
+  @@map("applications")
+}
+
+enum ApplicationStatus {
+  PENDING
+  VALIDATING
+  VALIDATED
+  PARSING
+  PARSED
+  EVALUATING
+  EVALUATED
+  FAILED_VALIDATION
+  FAILED_PARSING
+  FAILED_EVALUATION
+}
+
+// ============================================================================
+// AI Match Results & Verdicts
+// ============================================================================
+
+// Per SKILL.md §2: verdict is ENUM eligible/semi_eligible/not_eligible
+// Per SKILL.md §6: rule_results is JSONB array
+// Per SKILL.md §6: override fields set only via manual override flow
+
+model AiMatchResult {
+  id                String      @id @default(uuid()) @db.Uuid
+  applicationId     String      @map("application_id") @db.Uuid
+  ruleResults       Json        @map("rule_results")       // JSONB array per SKILL.md §6
+  verdict           Verdict
+  checklistVersion  Int         @map("checklist_version")  // Which locked checklist version
+  overrideBy        String?     @map("override_by") @db.Uuid
+  overrideReason    String?     @map("override_reason") @db.Text
+  overrideAt        DateTime?   @map("override_at")
+  processedAt       DateTime    @default(now()) @map("processed_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  application       Application @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId])
+  @@index([verdict])
+  @@map("ai_match_results")
+}
+
+// Per SKILL.md §6: override history is append-only
+model OverrideHistory {
+  id              String   @id @default(uuid()) @db.Uuid
+  matchResultId   String   @map("match_result_id") @db.Uuid
+  overriddenBy    String   @map("overridden_by") @db.Uuid
+  previousVerdict Verdict  @map("previous_verdict")
+  newVerdict      Verdict  @map("new_verdict")
+  reason          String   @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Append-only: never UPDATE or DELETE rows in this table (per SKILL.md §6)
+  @@index([matchResultId])
+  @@map("override_history")
+}
+
+enum Verdict {
+  eligible
+  semi_eligible
+  not_eligible
+}
+
+// ============================================================================
+// Documents & Viewing
+// ============================================================================
+
+model Document {
+  id              String      @id @default(uuid()) @db.Uuid
+  applicationId   String      @map("application_id") @db.Uuid
+  fileName        String      @map("file_name")
+  fileType        String      @map("file_type")
+  s3Key           String      @map("s3_key")
+  s3Bucket        String      @map("s3_bucket")
+  fileSizeBytes   Int?        @map("file_size_bytes")
+  mimeType        String?     @map("mime_type")
+  pageCount       Int?        @map("page_count")
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  application     Application @relation(fields: [applicationId], references: [id])
+  viewLogs        DocumentViewLog[]
+  notes           DocumentNote[]
+
+  @@index([applicationId])
+  @@map("documents")
+}
+
+// Per SKILL.md §6 and §9: "Every document view is logged to document_view_logs, no exceptions"
+// Append-only table — never UPDATE or DELETE rows
+model DocumentViewLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  viewedBy    String   @map("viewed_by") @db.Uuid
+  viewedAt    DateTime @default(now()) @map("viewed_at")
+  pageViewed  Int?     @map("page_viewed")
+  ipAddress   String?  @map("ip_address")
+
+  document    Document @relation(fields: [documentId], references: [id])
+  viewer      User     @relation(fields: [viewedBy], references: [id])
+
+  @@index([documentId])
+  @@index([viewedBy])
+  @@map("document_view_logs")
+}
+
+// Per SKILL.md §6: "Use a real table (not a JSONB blob) only when there can be
+// multiple independently-owned rows per parent (e.g. document_notes)"
+model DocumentNote {
+  id          String   @id @default(uuid()) @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  createdBy   String   @map("created_by") @db.Uuid
+  content     String   @db.Text
+  pageNumber  Int?     @map("page_number")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document    Document @relation(fields: [documentId], references: [id])
+
+  @@index([documentId])
+  @@map("document_notes")
+}
+
+// ============================================================================
+// Import Tracking
+// ============================================================================
+
+model ImportBatch {
+  id            String             @id @default(uuid()) @db.Uuid
+  jobId         String             @map("job_id") @db.Uuid
+  fileName      String             @map("file_name")
+  totalRows     Int                @map("total_rows")
+  processedRows Int                @default(0) @map("processed_rows")
+  failedRows    Int                @default(0) @map("failed_rows")
+  status        ImportBatchStatus  @default(PROCESSING)
+  createdBy     String             @map("created_by") @db.Uuid
+  createdAt     DateTime           @default(now()) @map("created_at")
+  completedAt   DateTime?          @map("completed_at")
+
+  job           Job                @relation(fields: [jobId], references: [id])
+  creator       User               @relation(fields: [createdBy], references: [id])
+  applications  Application[]
+  failedImports FailedImport[]
+
+  @@index([jobId])
+  @@map("import_batches")
+}
+
+model FailedImport {
+  id              String   @id @default(uuid()) @db.Uuid
+  importBatchId   String   @map("import_batch_id") @db.Uuid
+  rowNumber       Int      @map("row_number")
+  referenceNumber String?  @map("reference_number")
+  errorType       String   @map("error_type")
+  errorMessage    String   @map("error_message") @db.Text
+  rawRowData      Json?    @map("raw_row_data")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  importBatch     ImportBatch @relation(fields: [importBatchId], references: [id])
+
+  @@index([importBatchId])
+  @@map("failed_imports")
+}
+
+enum ImportBatchStatus {
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+}

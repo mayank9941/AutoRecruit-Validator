@@ -1,0 +1,10 @@
+﻿# Backend-only ignore
+local-storage/
+prisma/dev.db
+venv/
+.env
+.env.local
+.env.*.local
+__pycache__/
+**/__pycache__/
+*.log
