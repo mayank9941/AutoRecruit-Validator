@@ -5,12 +5,12 @@ import {
   FileText,
   Users,
   ShieldCheck,
-  Briefcase,
   Clock,
   CheckCircle2,
   AlertTriangle,
   PlusCircle,
 } from 'lucide-react';
+import ihmclLogo from '../../assets/ihmcl-logo.png';
 import { getRecentActivity } from '../../services/api';
 
 const navItems = [
@@ -69,7 +69,7 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Brand */}
         <div className="sidebar-brand">
           <div className="sidebar-brand-icon">
-            <Briefcase />
+            <img src={ihmclLogo} alt="IHMCL logo" />
           </div>
           <div className="sidebar-brand-text">
             <h2>IHMCL</h2>
@@ -121,16 +121,6 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
         </nav>
 
-        {/* Footer — user info */}
-        <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <div className="sidebar-avatar">PS</div>
-            <div className="sidebar-user-info">
-              <span className="name">Priya Sharma</span>
-              <span className="role">HR Manager</span>
-            </div>
-          </div>
-        </div>
       </aside>
     </>
   );

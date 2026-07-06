@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Bell, Search, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 const pageTitles = {
   '/': 'Home',
@@ -25,7 +25,12 @@ export default function Header({ onMenuClick }) {
   return (
     <header className="header">
       <div className="header-left">
-        <button className="mobile-menu-btn" onClick={onMenuClick}>
+        <button
+          className="mobile-menu-btn"
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Open navigation"
+        >
           <Menu size={20} />
         </button>
         <div>
@@ -41,16 +46,6 @@ export default function Header({ onMenuClick }) {
           </div>
           <h1 className="header-title">{title}</h1>
         </div>
-      </div>
-
-      <div className="header-right">
-        <button className="header-icon-btn" title="Search">
-          <Search size={18} />
-        </button>
-        <button className="header-icon-btn" title="Notifications">
-          <Bell size={18} />
-          <span className="notification-dot" />
-        </button>
       </div>
     </header>
   );
