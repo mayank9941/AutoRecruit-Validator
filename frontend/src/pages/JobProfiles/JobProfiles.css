@@ -1,0 +1,69 @@
+/* Note: .upload-file-input, .upload-file-label, .upload-error,
+   .upload-result, .upload-success-note, .upload-duplicate-note, and
+   .upload-list are shared patterns defined once in styles/base.css --
+   not repeated here. */
+
+.job-profiles-header {
+  margin-bottom: 24px;
+}
+
+.job-profiles-header h1 {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.upload-card {
+  margin-bottom: 36px;
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.upload-row .upload-file-label {
+  flex: 1;
+  min-width: 220px;
+}
+
+.profiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: transform 0.15s ease;
+}
+
+.profile-card-link:hover {
+  transform: translateY(-2px);
+}
+
+.profile-title {
+  font-size: 16px;
+  margin: 0;
+}
+
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+}
+
+.profile-stats {
+  font-size: 13px;
+  margin-top: 4px;
+}

@@ -1,0 +1,138 @@
+/* Note: .back-link and .section-title are shared patterns defined once
+   in styles/base.css -- not repeated here. */
+
+.profile-detail-header {
+  margin-bottom: 28px;
+}
+
+.profile-detail-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.profile-detail-title-row h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.profile-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+}
+
+.profile-detail section {
+  margin-bottom: 32px;
+}
+
+.relaxation-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.relaxation-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  padding: 6px 0;
+}
+
+.relaxation-row + .relaxation-row {
+  border-top: 1px solid var(--line);
+}
+
+.criteria-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.criterion-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.criterion-row-main {
+  flex: 1;
+  min-width: 240px;
+}
+
+.criterion-tags {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.criterion-type {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  background: rgba(23, 23, 26, 0.05);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.criterion-essential {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.criterion-essential.essential {
+  color: var(--down);
+  background: rgba(164, 66, 58, 0.08);
+}
+
+.criterion-essential.desirable {
+  color: var(--ink-soft);
+  background: rgba(23, 23, 26, 0.05);
+}
+
+.criterion-description {
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.criterion-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.criterion-row-editing {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.criterion-edit-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.add-criterion-trigger {
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .criterion-edit-fields {
+    grid-template-columns: 1fr;
+  }
+}

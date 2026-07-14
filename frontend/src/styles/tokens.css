@@ -1,0 +1,32 @@
+/*
+  Light "glass" theme -- used on every screen except Login.
+  Values ported exactly from the provided style-guide.html so the whole
+  app shares one consistent material.
+*/
+
+:root {
+  --bg-1: #f6f6f4;
+  --bg-2: #ececea;
+  --ink: #17171a;
+  --ink-soft: rgba(23, 23, 26, 0.68);
+  --ink-dim: rgba(23, 23, 26, 0.42);
+
+  --glass: rgba(255, 255, 255, 0.45);
+  --glass-soft: rgba(255, 255, 255, 0.3);
+  --glass-brd: rgba(23, 23, 26, 0.09);
+  --line: rgba(23, 23, 26, 0.08);
+
+  --up: #2f7a4f;
+  /* Additional status colors, used sparingly like --up, for
+     candidate status badges (Eligible / Not Eligible / Needs Review) */
+  --down: #a4423a;
+  --pending: #a67c2e;
+
+  --radius-card: 18px;
+  --radius-hero: 24px;
+  --radius-control: 12px;
+
+  --font-display: "Fraunces", serif;
+  --font-body: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}

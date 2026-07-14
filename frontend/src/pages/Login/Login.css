@@ -1,0 +1,232 @@
+/*
+  Dark "void" theme -- Login page only. Deliberately self-contained
+  (doesn't reuse the light-theme shared components/tokens) since this
+  page is meant to look and feel distinct from the rest of the app.
+  Values ported exactly from the provided login-style-guide.html.
+*/
+
+.login-page {
+  --void: #0a0a0b;
+  --deep: #19191b;
+  --star: #f5f5f6;
+  --mist: rgba(226, 226, 230, 0.68);
+  --mist-dim: rgba(226, 226, 230, 0.42);
+  --glass: rgba(255, 255, 255, 0.07);
+  --glass-brd: rgba(255, 255, 255, 0.22);
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--void);
+  color: var(--star);
+  font-family: "Space Grotesk", sans-serif;
+  overflow: hidden;
+}
+
+.login-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% 120%, rgba(255, 255, 255, 0.1), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 15% -10%, rgba(255, 255, 255, 0.07), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 5%, rgba(255, 255, 255, 0.06), transparent 60%),
+    linear-gradient(180deg, var(--void) 0%, var(--deep) 100%);
+}
+
+.login-stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-repeat: repeat;
+  background-image: radial-gradient(1.4px 1.4px at 20px 30px, var(--star), transparent),
+    radial-gradient(1.1px 1.1px at 90px 120px, var(--star), transparent),
+    radial-gradient(1.6px 1.6px at 160px 60px, var(--star), transparent),
+    radial-gradient(1.1px 1.1px at 230px 190px, var(--star), transparent),
+    radial-gradient(1.3px 1.3px at 300px 40px, var(--star), transparent);
+  background-size: 360px 240px;
+  opacity: 0.35;
+}
+
+.login-orb {
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.login-orb-1 {
+  width: 460px;
+  height: 460px;
+  top: -140px;
+  left: 6%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 70%);
+}
+.login-orb-2 {
+  width: 400px;
+  height: 400px;
+  top: 20%;
+  right: -100px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1), transparent 70%);
+}
+.login-orb-3 {
+  width: 480px;
+  height: 480px;
+  bottom: -180px;
+  left: 32%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.09), transparent 70%);
+}
+
+.login-wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 100px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mist-dim);
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.login-card {
+  position: relative;
+  width: 100%;
+  background: var(--glass);
+  border: 1px solid var(--glass-brd);
+  border-radius: 24px;
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: 0 20px 60px rgba(5, 4, 26, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 40px rgba(255, 255, 255, 0.03);
+  padding: 40px 36px;
+}
+
+.login-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.15) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.login-heading {
+  font-family: "Fraunces", serif;
+  font-weight: 500;
+  font-size: 32px;
+  margin: 0 0 8px;
+}
+
+.login-grad-text {
+  font-style: italic;
+  background: linear-gradient(100deg, #ffffff, #e8e8ea 50%, #9a9a9f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.login-subtext {
+  color: var(--mist);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-field label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+
+.login-field input {
+  width: 100%;
+  padding: 13px 14px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 14.5px;
+  color: var(--star);
+  background: rgba(8, 10, 30, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-field input::placeholder {
+  color: rgba(228, 226, 255, 0.35);
+}
+
+.login-field input:focus {
+  border-color: var(--star);
+  background: rgba(8, 10, 30, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
+}
+
+.login-error {
+  font-size: 13px;
+  color: #f2b3ad;
+  background: rgba(180, 60, 50, 0.15);
+  border: 1px solid rgba(242, 179, 173, 0.3);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.login-submit {
+  font-family: "Space Grotesk", sans-serif;
+  cursor: pointer;
+  margin-top: 6px;
+  padding: 13px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  color: #0a0a0b;
+  background: linear-gradient(100deg, #ffffff, #e8e8ea 60%, #cfcfd2);
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.14);
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.2);
+}
+
+.login-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 480px) {
+  .login-heading {
+    font-size: 26px;
+  }
+  .login-card {
+    padding: 32px 24px;
+  }
+}

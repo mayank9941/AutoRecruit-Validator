@@ -1,0 +1,49 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  border: 1px solid var(--glass-brd);
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  color: var(--ink-soft);
+}
+
+.badge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+  display: inline-block;
+}
+
+.badge-up {
+  color: var(--up);
+}
+.badge-up i {
+  background: var(--up);
+}
+
+.badge-down {
+  color: var(--down);
+}
+.badge-down i {
+  background: var(--down);
+}
+
+.badge-pending {
+  color: var(--pending);
+}
+.badge-pending i {
+  background: var(--pending);
+}
+
+.badge-neutral {
+  color: var(--ink-soft);
+}
+.badge-neutral i {
+  background: var(--ink-dim);
+}

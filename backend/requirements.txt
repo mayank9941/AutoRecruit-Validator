@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pdfplumber
+google-genai
+python-multipart
+bcrypt
+itsdangerous
+pandas
+openpyxl
+pymupdf

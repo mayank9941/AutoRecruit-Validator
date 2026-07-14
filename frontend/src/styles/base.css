@@ -1,0 +1,202 @@
+/*
+  Global reset + the shared "glass" recipe used by every card/panel in the
+  light theme. Ported from style-guide.html's .card primitive.
+*/
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg-1);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  margin: 0;
+}
+
+/* ---------- Page background: gradient + blurred orbs ---------- */
+/* Usage: wrap a page's content in <div class="glass-page"> and drop
+   3-4 <div class="orb orb-1">..<div class="orb orb-4"> siblings before
+   the content, sized/positioned per page as needed. */
+
+.glass-page {
+  position: relative;
+  min-height: 100vh;
+}
+
+.glass-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse 70% 45% at 85% -10%, rgba(23, 23, 26, 0.05), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 8% 105%, rgba(23, 23, 26, 0.04), transparent 60%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+}
+
+.orb {
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(70px);
+  pointer-events: none;
+}
+
+/* ---------- The glass card primitive ---------- */
+
+.glass-card {
+  position: relative;
+  background: var(--glass);
+  border: 1px solid var(--glass-brd);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  box-shadow: 0 20px 50px rgba(23, 23, 26, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.glass-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 45%, rgba(255, 255, 255, 0.15) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Utility text styles used across pages */
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.text-soft {
+  color: var(--ink-soft);
+}
+
+.text-dim {
+  color: var(--ink-dim);
+}
+
+/* Focus visibility -- kept even on glass surfaces for accessibility */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* ---------- Shared page patterns ---------- */
+/* Reused across pages (Job Profiles, Profile Detail, Candidates, and any
+   future screen with the same "upload a file" / "section heading" /
+   "go back" patterns) so every screen stays visually consistent and we
+   don't end up with slightly-drifted duplicate rules per page. */
+
+.back-link {
+  display: inline-block;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  margin-bottom: 14px;
+}
+
+.back-link:hover {
+  color: var(--ink);
+}
+
+.section-title {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.upload-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.upload-file-label {
+  display: block;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--glass-brd);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-file-label:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.upload-error {
+  color: var(--down);
+  font-size: 13.5px;
+  margin-top: 14px;
+}
+
+.upload-result {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.upload-success-note {
+  font-size: 14px;
+  margin: 0;
+}
+
+.upload-duplicate-note {
+  font-size: 14px;
+  color: var(--pending);
+  margin: 0;
+}
+
+.upload-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.upload-list li {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
