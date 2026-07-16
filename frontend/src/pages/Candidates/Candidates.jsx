@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import GlassCard from "../../components/GlassCard/GlassCard";
 import Button from "../../components/Button/Button";
@@ -25,6 +25,7 @@ function IngestionBadge({ status }) {
 
 export default function CandidatesPage() {
   const { profileId } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profile } = useJobProfile(profileId);
   const { data: candidates, isLoading, isError, error } = useCandidates(profileId);
@@ -126,6 +127,9 @@ export default function CandidatesPage() {
             >
               Re-screen all
             </Button>
+            <Link to={`/profiles/${profileId}/results`}>
+              <Button variant="glass">View Results →</Button>
+            </Link>
           </div>
         </div>
 
@@ -164,8 +168,8 @@ export default function CandidatesPage() {
         )}
 
         {candidates && candidates.length > 0 && (
-          <GlassCard className="candidates-table-card">
-            <table className="candidates-table">
+          <GlassCard className="data-table-card">
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -176,7 +180,11 @@ export default function CandidatesPage() {
               </thead>
               <tbody>
                 {candidates.map((c) => (
-                  <tr key={c.id}>
+                  <tr
+                    key={c.id}
+                    className="clickable-row"
+                    onClick={() => navigate(`/profiles/${profileId}/candidates/${c.id}/review`)}
+                  >
                     <td>
                       <div className="candidate-name">{c.name || "—"}</div>
                       <div className="candidate-id text-dim">{c.external_id}</div>

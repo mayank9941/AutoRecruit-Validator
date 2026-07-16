@@ -1,5 +1,6 @@
-/* Note: .back-link and .section-title are shared patterns defined once
-   in styles/base.css -- not repeated here. */
+/* Note: .back-link, .section-title, .upload-error, .criterion-tags,
+   .criterion-type, .criterion-essential, and .criterion-description are
+   shared patterns defined once in styles/base.css. */
 
 .profile-detail-header {
   margin-bottom: 28px;
@@ -66,47 +67,6 @@
 .criterion-row-main {
   flex: 1;
   min-width: 240px;
-}
-
-.criterion-tags {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.criterion-type {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ink-dim);
-  background: rgba(23, 23, 26, 0.05);
-  padding: 3px 8px;
-  border-radius: 6px;
-}
-
-.criterion-essential {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 8px;
-  border-radius: 6px;
-}
-
-.criterion-essential.essential {
-  color: var(--down);
-  background: rgba(164, 66, 58, 0.08);
-}
-
-.criterion-essential.desirable {
-  color: var(--ink-soft);
-  background: rgba(23, 23, 26, 0.05);
-}
-
-.criterion-description {
-  font-size: 14.5px;
-  line-height: 1.55;
-  margin: 0;
 }
 
 .criterion-actions {

@@ -9,29 +9,53 @@ from datetime import date, datetime
 
 # ---- Age relaxation category normalization ----
 
-NORMALIZATION_RULES = [
-    ("PwD_SC_ST", ["disabilit", "sc/st"]),
-    ("PwD_SC_ST", ["disabilit", "scheduled caste"]),
-    ("PwD_OBC", ["disabilit", "obc"]),
-    ("PwD_General", ["disabilit", "general"]),
-    ("PwD_General", ["disabilit"]),
-    ("Ex-Serviceman", ["ex-servicem", "ex servicem", "eco/ssco", "armed forces"]),
-    ("Central_Govt_Employee", ["central govt", "central government", "continuous service"]),
-    ("JK_Domicile", ["jammu", "kashmir", "j&k"]),
-    ("SC", ["scheduled caste", "sc/st", "sc /st", "sc,st"]),
-    ("ST", ["scheduled tribe"]),
-    ("OBC", ["backward class", "obc"]),
-    ("EWS", ["economically weaker", "ews"]),
-    ("General", ["general", "unreserved", "ur"]),
-]
-
-
 def normalize_category(raw_category: str) -> str:
+    """
+    Maps a JD's raw age-relaxation category text (e.g. "Other Backward
+    Classes", "Scheduled Caste/ Scheduled Tribe") to a fixed internal key.
+
+    Each internal key can be phrased many different ways across JDs, so
+    matching uses OR logic between alternative phrasings (any one keyword
+    is enough) -- except the PwD combination categories, which genuinely
+    need a disability indicator AND a specific sub-category keyword both
+    present to distinguish PwD_SC_ST from PwD_OBC from PwD_General.
+    """
     text = raw_category.lower()
-    for key, keywords in NORMALIZATION_RULES:
-        if all(kw in text for kw in keywords):
-            return key
-    return f"UNMAPPED: {raw_category}"
+
+    has_disability = "disabilit" in text
+    if has_disability:
+        if any(kw in text for kw in ("sc/st", "scheduled caste", "scheduled tribe")):
+            return "PwD_SC_ST"
+        if any(kw in text for kw in ("obc", "backward class")):
+            return "PwD_OBC"
+        if any(kw in text for kw in ("general", "unreserved")):
+            return "PwD_General"
+        # Disability mentioned but no specific sub-category stated --
+        # still a meaningful, distinct bucket rather than falling through
+        # to UNMAPPED.
+        return "PwD_General"
+
+    if any(kw in text for kw in ("ex-servicem", "ex servicem", "eco/ssco", "armed forces")):
+        return "Ex-Serviceman"
+    if any(kw in text for kw in ("central govt", "central government", "continuous service")):
+        return "Central_Govt_Employee"
+    if any(kw in text for kw in ("jammu", "kashmir", "j&k")):
+        return "JK_Domicile"
+    if any(kw in text for kw in ("scheduled caste", "sc/st", "sc /st", "sc,st")):
+        return "SC"
+    if "scheduled tribe" in text:
+        return "ST"
+    if any(kw in text for kw in ("backward class", "obc")):
+        return "OBC"
+    if any(kw in text for kw in ("economically weaker", "ews")):
+        return "EWS"
+    if any(kw in text for kw in ("general", "unreserved", "ur")):
+        return "General"
+
+    # Truncate the fallback so it can never exceed the DB column's length,
+    # no matter how verbose a future JD's category wording gets.
+    fallback = f"UNMAPPED: {raw_category}"
+    return fallback[:490]
 
 
 # ---- Candidate's own category normalization (separate from the age

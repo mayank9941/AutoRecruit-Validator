@@ -107,7 +107,7 @@ class AgeRelaxationRule(Base):
     job_profile_id: Mapped[str] = mapped_column(ForeignKey("job_profiles.id"))
 
     raw_category: Mapped[str] = mapped_column(String(500))       # exactly as returned by Gemini
-    normalized_category: Mapped[str] = mapped_column(String(100))  # SC/ST/OBC/PwD_General/etc.
+    normalized_category: Mapped[str] = mapped_column(String(500))  # SC/ST/OBC/PwD_General/etc.
     relaxation_text: Mapped[str] = mapped_column(String(200))    # "5 years", "service period + 3 years"
 
     job_profile: Mapped["JobProfile"] = relationship(back_populates="age_relaxation_rules")

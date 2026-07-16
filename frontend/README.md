@@ -3,12 +3,14 @@
 React + Vite frontend for the IHMCL HR Screening System. Talks to the
 FastAPI backend via cookie-based session auth.
 
-This step covers: project setup, the shared design system, Login, the
-sidebar layout, Dashboard, Job Profiles (JD upload + list), the Profile
-Detail / Criteria Editor screen, Candidate Upload + list, and the
-Screening trigger with live progress polling. Every other screen
-(Results, Review, Verification) comes in later steps, the same way the
-backend was built one endpoint at a time.
+This step covers the full HR flow, screen by screen: Login, Dashboard,
+Job Profiles (JD upload + list), Profile Detail / Criteria Editor,
+Candidate Upload + list, Screening with live progress, Results (filter +
+export), Manual Review (criterion breakdown + HR override), and Document
+Verification (identity re-check for Eligible candidates + HR
+verify/reject decisions). This completes the first full pass of the
+frontend, built the same way the backend was -- one screen at a time,
+each one tested against the real API before moving to the next.
 
 ## Setup
 
@@ -62,7 +64,9 @@ src/
     base.css                    -- reset + shared .glass-card recipe + orb backgrounds +
                                     shared page patterns (.back-link, .section-title,
                                     .upload-file-input/-label, .upload-error, .upload-result,
-                                    .upload-list) reused across every page that needs them
+                                    .upload-list, .candidate-name/-id, .data-table/-table-card,
+                                    .criterion-tags/-type/-essential/-description) reused
+                                    across every page that needs them
   lib/
     api.js                       -- fetch wrapper (credentials: "include", JSON handling, error parsing)
     format.js                     -- date/time formatting helper
@@ -73,6 +77,11 @@ src/
     useCandidates.js               -- react-query hooks: list candidates, upload candidates (mutation)
     useScreening.js                 -- react-query hooks: start screening (mutation), poll a
                                         screening run's progress (auto-refetches while "running")
+    useResults.js                   -- react-query hook: GET .../results, refetches when the
+                                        status filter changes
+    useReview.js                     -- react-query hooks: candidate review detail, override status (mutation)
+    useVerification.js               -- react-query hooks: fetch verification, run verification
+                                        (mutation), submit HR decision per field (mutation)
   context/
     AuthContext.jsx              -- login/logout/session state, checks /auth/me on load
     ProtectedRoute.jsx           -- redirects to /login if not authenticated
@@ -102,6 +111,21 @@ src/
                                       candidates table (ingestion status + screening status);
                                       also has "Run Screening" / "Re-screen all" buttons that
                                       start a batch run and poll its progress live until done
+    Results/                      -- filterable results table (Eligible/Not Eligible/Needs
+                                      Review/Not Evaluated tabs) with summary counts, and an
+                                      "Export to Excel" link straight to the backend's
+                                      streamed .xlsx download (a plain <a> tag, not a fetch
+                                      call -- see note below); rows are clickable through to
+                                      Manual Review
+    Review/                       -- one candidate's full criterion-by-criterion breakdown
+                                      (result, citation, reasoning per criterion) plus a form
+                                      for HR to override the final status with a reason;
+                                      reachable by clicking a row on Candidates or Results
+    Verification/                 -- for "Eligible" candidates: re-extracts name + DOB from
+                                      their 10th marksheet and compares against form data,
+                                      showing a match/mismatch/low-confidence/extraction-failed
+                                      badge per field, with a per-field HR verify/reject
+                                      decision + notes form
 ```
 
 ## Design notes
@@ -117,18 +141,26 @@ src/
   `STATUS_MAP` -- eligible/not_eligible/needs_review/not_evaluated each
   map to a label + color once, so every future screen that shows a status
   looks consistent automatically.
+- **The Excel export uses a plain `<a href=...>` link, not a `fetch` call.**
+  Since it's a simple top-level GET navigation (not an XHR/JS request), it
+  bypasses CORS entirely and the session cookie is sent normally under
+  `SameSite=Lax` -- no need for blob-URL download gymnastics in JS.
 
 ## Testing this step
 
-1. On a profile's Candidates page (with at least one candidate whose documents are complete), click "Run Screening"
-2. A progress bar should appear immediately, showing "X of Y processed" and "Running…"
-3. Poll should update every ~1.5s -- watch processed_count climb toward total_candidates
-4. Once it reaches 100% and the backend marks the run "completed", the progress label should switch to "Completed", and the candidates table above should refresh automatically to show updated statuses (Eligible/Not Eligible/Needs Review)
-5. Try "Re-screen all" -- should re-evaluate every candidate regardless of current status (useful after editing criteria)
-6. If a candidate's documents are incomplete/missing, their status should end up "Not Evaluated" after screening (skipped, not failed)
+1. Get a candidate to "Eligible" status (via screening or a manual override), then open their Review page
+2. Click "Document Verification →" in the top right
+3. Click "Run Verification" -- this re-extracts name + DOB from their 10th marksheet (works for both text-based and scanned/image marksheets, per the backend's Gemini vision fallback) and compares against their form data
+4. Each field (Name, Date of Birth) should show a match-status badge (matched/mismatch/low confidence/extraction failed), the form value vs. extracted value side by side, and the extraction confidence
+5. For each field without an existing HR decision, use the "Verify"/"Reject" form + optional notes, then "Save decision" -- it should immediately switch to a read-only decided state showing your choice and notes
+6. Try this on a candidate who is NOT "Eligible" -- the page should show a message explaining verification only applies to Eligible candidates, without a "Run Verification" button
+7. Re-run verification -- previous decisions should be cleared (fresh extraction), matching the backend's documented behavior of resetting on re-verification
 
-## Still Missing (future steps)
+## This completes the first full pass of the frontend
 
-- Results screen + export
-- Manual Review screen
-- Document Verification screen
+Every screen in the original HR flow now exists and talks to the real
+backend: Login → Dashboard → JD Upload/Job Profiles → Criteria Editor →
+Candidate Upload → Screening → Results → Manual Review → Document
+Verification. From here, further work would be refinement (polish,
+responsive/mobile pass, empty/loading/error states, accessibility) rather
+than new screens -- unless new backend functionality is added first.

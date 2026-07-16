@@ -74,7 +74,9 @@ def _render_first_page_as_image(file_path: str) -> bytes | None:
     """
     try:
         import fitz  # PyMuPDF
-    except ImportError:
+    except ImportError as e:
+        print(f"[document_verification] PyMuPDF ('pymupdf' package) is not installed -- "
+              f"cannot render scanned pages to images. Run: pip install pymupdf. Error: {e}")
         return None
 
     try:
@@ -84,7 +86,8 @@ def _render_first_page_as_image(file_path: str) -> bytes | None:
         page = doc[0]
         pixmap = page.get_pixmap(dpi=200)
         return pixmap.tobytes("png")
-    except Exception:
+    except Exception as e:
+        print(f"[document_verification] Failed to render '{file_path}' to an image: {type(e).__name__}: {e}")
         return None
 
 

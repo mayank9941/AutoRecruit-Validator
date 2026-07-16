@@ -1,4 +1,4 @@
-cd# IHMCL HR Screening System -- Backend
+# IHMCL HR Screening System -- Backend
 
 FastAPI + PostgreSQL backend for the IHMCL HR Screening System. Covers the
 full flow from JD upload through candidate screening: **Login -> Upload JD

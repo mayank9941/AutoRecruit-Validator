@@ -1,0 +1,96 @@
+/* Note: .back-link, .section-title, .upload-error, .criterion-tags,
+   .criterion-type, .criterion-essential, and .criterion-description are
+   shared patterns defined once in styles/base.css. */
+
+.review-header {
+  margin-bottom: 28px;
+}
+
+.review-header-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.review-verify-link {
+  margin-left: auto;
+  text-decoration: none;
+}
+
+.review-header-top h1 {
+  font-size: 26px;
+  margin: 0;
+}
+
+.override-notice {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(23, 23, 26, 0.04);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.override-notice .badge {
+  margin: 0 2px;
+}
+
+.override-reason {
+  margin: 6px 0 0;
+  font-style: italic;
+}
+
+.review-page section {
+  margin-bottom: 32px;
+}
+
+.review-evaluations {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-evaluation-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.review-evaluation-main {
+  flex: 1;
+  min-width: 260px;
+}
+
+.review-reasoning {
+  font-size: 13.5px;
+  margin: 8px 0 0;
+  line-height: 1.55;
+}
+
+.review-citation {
+  font-size: 12px;
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+}
+
+.override-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 480px;
+}
+
+.override-form-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.override-success {
+  color: var(--up);
+  font-size: 13.5px;
+  margin: 0;
+}
