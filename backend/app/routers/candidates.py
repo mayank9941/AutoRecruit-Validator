@@ -30,7 +30,7 @@ router = APIRouter(
     dependencies=[Depends(get_current_hr_user)],
 )
 
-UPLOAD_DIR = os.getenv("CANDIDATE_UPLOAD_DIR", "storage/candidate_uploads")
+UPLOAD_DIR = os.path.abspath(os.getenv("CANDIDATE_UPLOAD_DIR", "storage/candidate_uploads"))
 
 
 @router.post("/upload", response_model=CandidateUploadSummary)

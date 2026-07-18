@@ -7,6 +7,12 @@ full flow from JD upload through candidate screening: **Login -> Upload JD
 
 ## Setup
 
+**Every teammate running this backend needs to complete all of these
+steps on their own machine** -- each person has their own PostgreSQL
+install (with their own password), their own Gemini API key, and their
+own `.env` file. Nothing is shared between teammates except the code
+itself.
+
 ### 1. Create the PostgreSQL database
 ```bash
 # Postgres must already be installed
@@ -23,24 +29,24 @@ venv\Scripts\activate          # Windows
 pip install -r requirements.txt
 ```
 
-### 3. Set environment variables
+### 3. Create your own `.env` file
 ```bash
-# Windows (PowerShell)
-$env:DATABASE_URL="postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432/ihmcl_hr"
-$env:GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-$env:SECRET_KEY="any-long-random-string-here"
-
-# Windows (cmd)
-set DATABASE_URL=postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432/ihmcl_hr
-set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-set SECRET_KEY=any-long-random-string-here
+cp .env.example .env
 ```
-(Or create a `.env` file and load it with `python-dotenv` -- environment
-variables are used directly for simplicity right now.)
+Open `.env` and fill in:
+- `DATABASE_URL` -- use **your own** Postgres password (the one you set when you installed Postgres on your machine -- this is almost never the same for two different people, so don't copy a teammate's value)
+- `GEMINI_API_KEY` -- your own key from Google AI Studio
+- `SECRET_KEY` -- any random string, doesn't need to match anyone else's
 
-`SECRET_KEY` is used to sign the login session cookie. If not set, a
-default dev-only key is used -- **always** set your own random secret key
-in production.
+**This is the key fix for "it works on my laptop but not my teammates'."**
+The app automatically loads `.env` on startup (via `python-dotenv`), so once
+this file is set up correctly, it stays working across every new terminal
+session, every reboot, forever -- no more manually running `set VAR=value`
+commands (which is easy to forget, and was the actual cause of most
+"password authentication failed" / login errors teammates were hitting).
+
+`.env` is already in `.gitignore` -- **never commit it or share it**, since
+it contains your personal password and API key.
 
 ### 4. Run the server
 ```bash
@@ -60,12 +66,37 @@ provisioned by an admin, not self-registered):
 python scripts/create_hr_user.py hr@ihmcl.com
 ```
 This will prompt for a password and create an HR account in the database.
+(This script also reads your `.env` automatically -- no separate setup
+needed.)
 
 ### 6. Log in via `/docs`
 
 Call `POST /auth/login` from Swagger UI with your email/password -- the
 browser will automatically store the session cookie, and all other
 protected endpoints will then work directly from `/docs` too.
+
+## ⚠️ Troubleshooting: "it works on my laptop but not my teammate's"
+
+This almost always comes down to one of these -- check in order:
+
+1. **Did they create their own `.env` file?** (`cp .env.example .env`, then
+   actually fill in their own Postgres password and Gemini API key). If
+   `.env` doesn't exist, the app silently falls back to a default
+   `DATABASE_URL` that assumes the Postgres password is literally
+   `postgres` -- which fails for almost everyone with a real password set.
+2. **Is their Postgres password actually in `.env`?** Not yours, not a
+   placeholder -- their own, from when they installed Postgres on their
+   own machine.
+3. **Did they create the `ihmcl_hr` database** on their own Postgres
+   install? (`createdb ihmcl_hr`) -- a fresh Postgres install doesn't have
+   it yet.
+4. **Did they create their own HR account** with
+   `python scripts/create_hr_user.py ...`? Each person's database starts
+   empty -- there's no shared user list.
+5. **Did they run `pip install -r requirements.txt`** inside their own
+   virtual environment? Missing packages (especially after a
+   `requirements.txt` update, like `pymupdf` or `python-dotenv`) cause
+   confusing errors that look unrelated to the real cause.
 
 ## ⚠️ If you already have a database from an earlier version
 

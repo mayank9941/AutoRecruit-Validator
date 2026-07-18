@@ -30,7 +30,7 @@ from app.services.auth_service import get_current_hr_user
 
 router = APIRouter(prefix="/jd", tags=["jd-upload"], dependencies=[Depends(get_current_hr_user)])
 
-UPLOAD_DIR = os.getenv("JD_UPLOAD_DIR", "storage/jd_uploads")
+UPLOAD_DIR = os.path.abspath(os.getenv("JD_UPLOAD_DIR", "storage/jd_uploads"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 

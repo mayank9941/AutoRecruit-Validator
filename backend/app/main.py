@@ -11,6 +11,19 @@ directly, without building a frontend.
 
 import os
 
+# Load environment variables from a .env file, if one exists, BEFORE any
+# other app module is imported. This must happen first -- modules like
+# app.db.session and app.services.gemini_service read DATABASE_URL /
+# GEMINI_API_KEY / SECRET_KEY with os.getenv() at import time, so if this
+# loads after those imports, it would be too late to have any effect.
+#
+# This is what lets each teammate set up their own DATABASE_URL/API key
+# ONCE in a .env file, instead of needing to run 'set VAR=value' in every
+# new terminal session (easy to forget, and the #1 cause of "works on my
+# machine, not on my teammate's machine" for this project).
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

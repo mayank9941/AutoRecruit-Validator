@@ -5,8 +5,8 @@ There is deliberately no open '/auth/register' API endpoint -- HR accounts
 should be created by an admin/IT, not via self-signup, otherwise anyone
 could create an account and gain access to the system.
 
-How to run (from inside the backend folder, after setting environment
-variables -- DATABASE_URL should be the same as when running the server):
+How to run (from inside the backend folder, with a .env file already set
+up -- see .env.example):
 
     python scripts/create_hr_user.py hr@ihmcl.com
 """
@@ -16,6 +16,11 @@ import os
 
 # So the 'app' package can be imported when this script is run directly
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Load .env BEFORE importing anything from app.* -- those modules read
+# DATABASE_URL etc. with os.getenv() at import time.
+from dotenv import load_dotenv
+load_dotenv()
 
 import getpass
 

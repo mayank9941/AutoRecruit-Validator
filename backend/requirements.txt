@@ -10,3 +10,4 @@ itsdangerous
 pandas
 openpyxl
 pymupdf
+python-dotenv
