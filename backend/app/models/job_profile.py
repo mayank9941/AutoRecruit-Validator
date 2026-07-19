@@ -65,6 +65,15 @@ class JobProfile(Base):
     base_age_min: Mapped[int] = mapped_column(Integer, nullable=True)
     base_age_max: Mapped[int] = mapped_column(Integer, nullable=True)
 
+    # Index into source_jd_upload.gemini_raw_response["posts"] that this
+    # profile was created from -- lets the criteria-restore endpoint find
+    # the right post's criteria list again later, without relying on a
+    # fragile title match (which breaks if HR edits the title, or if two
+    # posts in the same JD happen to share a title). Null for profiles
+    # created before this tracking was added, or in any future path that
+    # doesn't originate from a Gemini parse.
+    source_post_index: Mapped[int] = mapped_column(Integer, nullable=True)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -91,6 +100,15 @@ class Criterion(Base):
     description: Mapped[str] = mapped_column(Text)
     is_essential: Mapped[bool] = mapped_column(Boolean, default=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Index into the source post's "criteria" list (within
+    # job_profile.source_jd_upload.gemini_raw_response) that this
+    # criterion was originally created from. Set at creation time from a
+    # Gemini parse and never changed afterward (unlike display_order,
+    # which HR can freely reorder) -- this is what lets the restore
+    # endpoint tell "still present" apart from "was deleted" reliably.
+    # Null for criteria HR added manually (no source to restore from).
+    source_index: Mapped[int] = mapped_column(Integer, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(

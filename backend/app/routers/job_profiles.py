@@ -10,8 +10,15 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.job_profile import JobProfile, Criterion
-from app.schemas.job_profile import JobProfileOut, CriterionOut, CriterionCreate, CriterionUpdate
+from app.schemas.job_profile import (
+    JobProfileOut,
+    CriterionOut,
+    CriterionCreate,
+    CriterionUpdate,
+    CriteriaRestoreResponse,
+)
 from app.services.auth_service import get_current_hr_user
+from app.services.criteria_utils import is_essential_from_description
 
 router = APIRouter(prefix="/jd/profiles", tags=["job-profiles"], dependencies=[Depends(get_current_hr_user)])
 
@@ -59,8 +66,17 @@ def get_job_profile(profile_id: str, db: Session = Depends(get_db)):
 @router.post("/{profile_id}/criteria", response_model=CriterionOut, status_code=201)
 def add_criterion(profile_id: str, payload: CriterionCreate, db: Session = Depends(get_db)):
     """Lets HR manually add a new criterion (e.g. if Gemini missed
-    something, or HR wants to add an extra custom rule)."""
+    something, or HR wants to add an extra custom rule).
+
+    If the profile had been soft-deleted (is_active = False) because its
+    last criterion was previously removed, adding a criterion back
+    reactivates it -- the profile now has something to screen against
+    again, so it belongs in the active Job Profiles list once more.
+    """
     profile = _get_profile_or_404(profile_id, db)
+
+    if not profile.is_active:
+        profile.is_active = True
 
     display_order = payload.display_order
     if display_order is None:
@@ -104,10 +120,167 @@ def update_criterion(
 
 @router.delete("/{profile_id}/criteria/{criterion_id}", status_code=204)
 def delete_criterion(profile_id: str, criterion_id: str, db: Session = Depends(get_db)):
-    """Permanently deletes a criterion. If an audit trail of what HR
-    deleted is needed in the future, this can be changed to a soft-delete
-    (an is_active flag) instead -- a hard delete is simple and fine for now."""
+    """
+    Permanently deletes a criterion. If an audit trail of what HR deleted
+    is needed in the future, this can be changed to a soft-delete (an
+    is_active flag) instead -- a hard delete is simple and fine for now.
+
+    If this was the profile's LAST criterion, the profile itself is
+    soft-deleted (is_active = False) -- a profile with zero criteria has
+    nothing to screen candidates against, so it shouldn't stay visible in
+    the active Job Profiles list. The profile row is kept (not hard
+    deleted) since candidates may already reference it via foreign key.
+    """
     criterion = _get_criterion_or_404(profile_id, criterion_id, db)
+    profile = criterion.job_profile
+
     db.delete(criterion)
+    db.flush()  # so the count below reflects the deletion
+
+    remaining_count = (
+        db.query(Criterion).filter(Criterion.job_profile_id == profile_id).count()
+    )
+    if remaining_count == 0:
+        profile.is_active = False
+
     db.commit()
     return None
+
+
+def _get_source_criteria_or_422(profile: JobProfile) -> list[dict]:
+    """
+    Fetches the original Gemini-parsed criteria list for a profile's
+    source post, from the stored gemini_raw_response on its JD upload.
+    Shared by both /criteria/restore and /criteria/{id}/revert, since
+    both need the same "find my original data" step.
+    """
+    jd_upload = profile.source_jd_upload
+
+    if profile.source_post_index is None or not jd_upload or not jd_upload.gemini_raw_response:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "No stored source data available for this profile "
+                "(it may have been created before restore/revert support was added)."
+            ),
+        )
+
+    posts = jd_upload.gemini_raw_response.get("posts", [])
+    if profile.source_post_index >= len(posts):
+        raise HTTPException(
+            status_code=422,
+            detail="The stored source data doesn't match this profile's expected post position.",
+        )
+
+    return posts[profile.source_post_index].get("criteria", [])
+
+
+@router.post("/{profile_id}/criteria/restore", response_model=CriteriaRestoreResponse)
+def restore_deleted_criteria(profile_id: str, db: Session = Depends(get_db)):
+    """
+    Re-creates any criteria that were deleted from this profile, using the
+    original Gemini-parsed data stored on the source JD upload
+    (jd_upload.gemini_raw_response) -- no new Gemini call is made.
+
+    Matching "still present" vs. "was deleted" is done by source_index
+    (the criterion's position in the original post's criteria list, set
+    once at creation time and never changed afterward) rather than by
+    comparing description text -- a description match would incorrectly
+    treat an HR-edited criterion as "different from the original" and
+    restore a duplicate alongside it. Criteria HR added manually (which
+    have no source_index) are left untouched either way, since there's
+    nothing in the raw response to compare them against.
+
+    Note: this endpoint deliberately does NOT touch criteria that are
+    still present but have been edited -- it only fills in what's
+    missing. To reset a single edited-but-not-deleted criterion back to
+    its original wording, use POST .../criteria/{criterion_id}/revert
+    instead.
+
+    Only works for profiles created after source_post_index/source_index
+    tracking was added -- profiles from before that will have
+    source_post_index = None and get a 422 explaining why.
+    """
+    profile = _get_profile_or_404(profile_id, db)
+    source_criteria = _get_source_criteria_or_422(profile)
+
+    existing_source_indices = {
+        c.source_index for c in profile.criteria if c.source_index is not None
+    }
+
+    max_display_order = max((c.display_order for c in profile.criteria), default=-1)
+
+    restored: list[Criterion] = []
+    for idx, crit in enumerate(source_criteria):
+        if idx in existing_source_indices:
+            continue  # still present in the DB, nothing to restore
+
+        max_display_order += 1
+        description = crit.get("description", "")
+        new_criterion = Criterion(
+            job_profile_id=profile.id,
+            type=crit.get("type", "other"),
+            description=description,
+            is_essential=is_essential_from_description(description),
+            display_order=max_display_order,
+            source_index=idx,
+        )
+        db.add(new_criterion)
+        restored.append(new_criterion)
+
+    if restored and not profile.is_active:
+        # A profile that had every criterion deleted (and was therefore
+        # soft-deleted per Part 1's behavior) becomes usable again once
+        # any criteria are restored to it.
+        profile.is_active = True
+
+    db.commit()
+    for c in restored:
+        db.refresh(c)
+    db.refresh(profile)
+
+    return CriteriaRestoreResponse(restored_count=len(restored), profile=profile)
+
+
+@router.post("/{profile_id}/criteria/{criterion_id}/revert", response_model=CriterionOut)
+def revert_criterion_to_original(profile_id: str, criterion_id: str, db: Session = Depends(get_db)):
+    """
+    Resets a single criterion that is STILL PRESENT (not deleted) back to
+    its original Gemini-parsed wording -- undoes an HR edit, in other
+    words. This is different from /criteria/restore, which only re-creates
+    criteria that were deleted; this endpoint targets one existing row and
+    overwrites it in place, rather than creating a new one.
+
+    Only works for criteria that have a source_index (i.e. came from a
+    Gemini parse, not manually added by HR) -- manually-added criteria
+    have no "original" to revert to, and get a 422 explaining why.
+    """
+    profile = _get_profile_or_404(profile_id, db)
+    criterion = _get_criterion_or_404(profile_id, criterion_id, db)
+
+    if criterion.source_index is None:
+        raise HTTPException(
+            status_code=422,
+            detail="This criterion was added manually and has no original version to revert to.",
+        )
+
+    source_criteria = _get_source_criteria_or_422(profile)
+
+    if criterion.source_index >= len(source_criteria):
+        raise HTTPException(
+            status_code=422,
+            detail="The stored source data doesn't contain this criterion's original position anymore.",
+        )
+
+    original = source_criteria[criterion.source_index]
+    original_description = original.get("description", "")
+
+    criterion.type = original.get("type", "other")
+    criterion.description = original_description
+    criterion.is_essential = is_essential_from_description(original_description)
+    # display_order is intentionally left as-is -- reverting content
+    # shouldn't also silently reorder the list.
+
+    db.commit()
+    db.refresh(criterion)
+    return criterion

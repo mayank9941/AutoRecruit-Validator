@@ -27,19 +27,12 @@ from app.services.age_relaxation import (
     validate_gemini_output,
 )
 from app.services.auth_service import get_current_hr_user
+from app.services.criteria_utils import is_essential_from_description
 
 router = APIRouter(prefix="/jd", tags=["jd-upload"], dependencies=[Depends(get_current_hr_user)])
 
 UPLOAD_DIR = os.path.abspath(os.getenv("JD_UPLOAD_DIR", "storage/jd_uploads"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-def _is_essential(description: str) -> bool:
-    """Guesses essential vs desirable/preferred from the wording at the
-    start of the description. A small heuristic -- HR can override this
-    in the Criteria Editor if it's wrong."""
-    lowered = description.strip().lower()
-    return not lowered.startswith(("preferred", "preferable", "desirable"))
 
 
 @router.post("/upload", response_model=JDUploadResponse)
@@ -119,7 +112,7 @@ async def upload_jd(file: UploadFile = File(...), db: Session = Depends(get_db))
     created_profiles: list[JobProfile] = []
     age_relax_data = gemini_result.get("age_relaxation", {})
 
-    for post in gemini_result.get("posts", []):
+    for post_index, post in enumerate(gemini_result.get("posts", [])):
         base_age_min, base_age_max = None, None
         for crit in post.get("criteria", []):
             if crit.get("type") == "age":
@@ -131,6 +124,7 @@ async def upload_jd(file: UploadFile = File(...), db: Session = Depends(get_db))
             title=post.get("title", "").strip() or "Untitled Post",
             base_age_min=base_age_min,
             base_age_max=base_age_max,
+            source_post_index=post_index,
         )
         db.add(profile)
         db.flush()
@@ -141,8 +135,9 @@ async def upload_jd(file: UploadFile = File(...), db: Session = Depends(get_db))
                 job_profile_id=profile.id,
                 type=crit.get("type", "other"),
                 description=description,
-                is_essential=_is_essential(description),
+                is_essential=is_essential_from_description(description),
                 display_order=idx,
+                source_index=idx,
             ))
 
         if age_relax_data.get("mentioned_in_jd"):

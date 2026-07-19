@@ -124,6 +124,20 @@ DROP TABLE IF EXISTS hr_users CASCADE;
 Then restart the server (`uvicorn app.main:app --reload`) -- it will
 recreate all tables with the current structure.
 
+**For just this update** (adding `source_post_index` to `job_profiles` and
+`source_index` to `criteria`, for the criteria-restore feature): since
+these are new *nullable* columns being added to existing tables, you can
+skip the full drop-and-recreate above and instead just run this in the
+Query Tool, which preserves all your existing candidates/screening data:
+```sql
+ALTER TABLE job_profiles ADD COLUMN IF NOT EXISTS source_post_index INTEGER;
+ALTER TABLE criteria ADD COLUMN IF NOT EXISTS source_index INTEGER;
+```
+Existing profiles/criteria (created before this update) will have `NULL`
+in these new columns, which means criteria-restore won't work for them
+specifically (they'll get a 422 explaining why) -- but every JD uploaded
+*after* this update will have full restore support.
+
 (Once this goes to production with real data, tables won't be dropped like
 this -- schema changes will be applied properly with Alembic migrations,
 without losing data. This drop-and-recreate approach is just a development
@@ -158,6 +172,16 @@ shortcut for now.)
 | POST | `/jd/profiles/{profile_id}/criteria` | Manually add a new criterion |
 | PATCH | `/jd/profiles/{profile_id}/criteria/{criterion_id}` | Edit a criterion (partial update -- only send the fields you want to change) |
 | DELETE | `/jd/profiles/{profile_id}/criteria/{criterion_id}` | Delete a criterion |
+| POST | `/jd/profiles/{profile_id}/criteria/restore` | Re-create any criteria that were deleted, from the original Gemini parse |
+| POST | `/jd/profiles/{profile_id}/criteria/{criterion_id}/revert` | Reset one still-present criterion back to its original wording, undoing an HR edit |
+
+**Auto soft-delete on last criterion removal:** if deleting a criterion leaves a profile with zero criteria, the profile itself is automatically soft-deleted (`is_active = False`) -- a profile with no criteria has nothing to screen candidates against, so it's removed from the active `GET /jd/profiles` list (the row itself is kept, not hard-deleted, since candidates may already reference it). Adding a criterion back to a soft-deleted profile via `POST .../criteria` automatically reactivates it.
+
+**Criteria restore vs. revert -- two different operations:**
+- **Restore** (`POST .../criteria/restore`) re-creates criteria that were *deleted*. It never touches a criterion that's still present, even if HR has edited it -- doing so would risk creating a duplicate alongside the edited version.
+- **Revert** (`POST .../criteria/{criterion_id}/revert`) is the other case: a criterion that's still present but has been *edited*, where HR wants to undo the edit and get the original Gemini wording back. This overwrites the existing row in place rather than creating a new one.
+
+Both rely on each `Criterion`/`JobProfile` tracking the index it was created from in the JD upload's stored Gemini response (`source_index` / `source_post_index`) -- no new Gemini call is made for either operation, since the original parse is already saved. Criteria HR added manually have no source index, so restore always skips them and revert returns a 422 for them (nothing to revert to). This only works for profiles created after this tracking was added -- older profiles will get a 422 explaining that no source data is available.
 
 ### Candidate Upload
 | Method | Path | Purpose |

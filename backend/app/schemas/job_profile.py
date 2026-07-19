@@ -67,3 +67,8 @@ class CriterionUpdate(BaseModel):
     description: Optional[str] = None
     is_essential: Optional[bool] = None
     display_order: Optional[int] = None
+
+
+class CriteriaRestoreResponse(BaseModel):
+    restored_count: int
+    profile: JobProfileOut
