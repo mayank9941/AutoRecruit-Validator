@@ -1,4 +1,4 @@
-cd# IHMCL HR Screening System -- Backend
+# IHMCL HR Screening System -- Backend
 
 FastAPI + PostgreSQL backend for the IHMCL HR Screening System. Covers the
 full flow from JD upload through candidate screening: **Login -> Upload JD
@@ -6,6 +6,12 @@ full flow from JD upload through candidate screening: **Login -> Upload JD
 (single or batch) -> Results**.
 
 ## Setup
+
+**Every teammate running this backend needs to complete all of these
+steps on their own machine** -- each person has their own PostgreSQL
+install (with their own password), their own Gemini API key, and their
+own `.env` file. Nothing is shared between teammates except the code
+itself.
 
 ### 1. Create the PostgreSQL database
 ```bash
@@ -23,24 +29,24 @@ venv\Scripts\activate          # Windows
 pip install -r requirements.txt
 ```
 
-### 3. Set environment variables
+### 3. Create your own `.env` file
 ```bash
-# Windows (PowerShell)
-$env:DATABASE_URL="postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432/ihmcl_hr"
-$env:GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-$env:SECRET_KEY="any-long-random-string-here"
-
-# Windows (cmd)
-set DATABASE_URL=postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432/ihmcl_hr
-set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-set SECRET_KEY=any-long-random-string-here
+cp .env.example .env
 ```
-(Or create a `.env` file and load it with `python-dotenv` -- environment
-variables are used directly for simplicity right now.)
+Open `.env` and fill in:
+- `DATABASE_URL` -- use **your own** Postgres password (the one you set when you installed Postgres on your machine -- this is almost never the same for two different people, so don't copy a teammate's value)
+- `GEMINI_API_KEY` -- your own key from Google AI Studio
+- `SECRET_KEY` -- any random string, doesn't need to match anyone else's
 
-`SECRET_KEY` is used to sign the login session cookie. If not set, a
-default dev-only key is used -- **always** set your own random secret key
-in production.
+**This is the key fix for "it works on my laptop but not my teammates'."**
+The app automatically loads `.env` on startup (via `python-dotenv`), so once
+this file is set up correctly, it stays working across every new terminal
+session, every reboot, forever -- no more manually running `set VAR=value`
+commands (which is easy to forget, and was the actual cause of most
+"password authentication failed" / login errors teammates were hitting).
+
+`.env` is already in `.gitignore` -- **never commit it or share it**, since
+it contains your personal password and API key.
 
 ### 4. Run the server
 ```bash
@@ -60,12 +66,37 @@ provisioned by an admin, not self-registered):
 python scripts/create_hr_user.py hr@ihmcl.com
 ```
 This will prompt for a password and create an HR account in the database.
+(This script also reads your `.env` automatically -- no separate setup
+needed.)
 
 ### 6. Log in via `/docs`
 
 Call `POST /auth/login` from Swagger UI with your email/password -- the
 browser will automatically store the session cookie, and all other
 protected endpoints will then work directly from `/docs` too.
+
+## ⚠️ Troubleshooting: "it works on my laptop but not my teammate's"
+
+This almost always comes down to one of these -- check in order:
+
+1. **Did they create their own `.env` file?** (`cp .env.example .env`, then
+   actually fill in their own Postgres password and Gemini API key). If
+   `.env` doesn't exist, the app silently falls back to a default
+   `DATABASE_URL` that assumes the Postgres password is literally
+   `postgres` -- which fails for almost everyone with a real password set.
+2. **Is their Postgres password actually in `.env`?** Not yours, not a
+   placeholder -- their own, from when they installed Postgres on their
+   own machine.
+3. **Did they create the `ihmcl_hr` database** on their own Postgres
+   install? (`createdb ihmcl_hr`) -- a fresh Postgres install doesn't have
+   it yet.
+4. **Did they create their own HR account** with
+   `python scripts/create_hr_user.py ...`? Each person's database starts
+   empty -- there's no shared user list.
+5. **Did they run `pip install -r requirements.txt`** inside their own
+   virtual environment? Missing packages (especially after a
+   `requirements.txt` update, like `pymupdf` or `python-dotenv`) cause
+   confusing errors that look unrelated to the real cause.
 
 ## ⚠️ If you already have a database from an earlier version
 
@@ -92,6 +123,20 @@ DROP TABLE IF EXISTS hr_users CASCADE;
 ```
 Then restart the server (`uvicorn app.main:app --reload`) -- it will
 recreate all tables with the current structure.
+
+**For just this update** (adding `source_post_index` to `job_profiles` and
+`source_index` to `criteria`, for the criteria-restore feature): since
+these are new *nullable* columns being added to existing tables, you can
+skip the full drop-and-recreate above and instead just run this in the
+Query Tool, which preserves all your existing candidates/screening data:
+```sql
+ALTER TABLE job_profiles ADD COLUMN IF NOT EXISTS source_post_index INTEGER;
+ALTER TABLE criteria ADD COLUMN IF NOT EXISTS source_index INTEGER;
+```
+Existing profiles/criteria (created before this update) will have `NULL`
+in these new columns, which means criteria-restore won't work for them
+specifically (they'll get a 422 explaining why) -- but every JD uploaded
+*after* this update will have full restore support.
 
 (Once this goes to production with real data, tables won't be dropped like
 this -- schema changes will be applied properly with Alembic migrations,
@@ -127,6 +172,16 @@ shortcut for now.)
 | POST | `/jd/profiles/{profile_id}/criteria` | Manually add a new criterion |
 | PATCH | `/jd/profiles/{profile_id}/criteria/{criterion_id}` | Edit a criterion (partial update -- only send the fields you want to change) |
 | DELETE | `/jd/profiles/{profile_id}/criteria/{criterion_id}` | Delete a criterion |
+| POST | `/jd/profiles/{profile_id}/criteria/restore` | Re-create any criteria that were deleted, from the original Gemini parse |
+| POST | `/jd/profiles/{profile_id}/criteria/{criterion_id}/revert` | Reset one still-present criterion back to its original wording, undoing an HR edit |
+
+**Auto soft-delete on last criterion removal:** if deleting a criterion leaves a profile with zero criteria, the profile itself is automatically soft-deleted (`is_active = False`) -- a profile with no criteria has nothing to screen candidates against, so it's removed from the active `GET /jd/profiles` list (the row itself is kept, not hard-deleted, since candidates may already reference it). Adding a criterion back to a soft-deleted profile via `POST .../criteria` automatically reactivates it.
+
+**Criteria restore vs. revert -- two different operations:**
+- **Restore** (`POST .../criteria/restore`) re-creates criteria that were *deleted*. It never touches a criterion that's still present, even if HR has edited it -- doing so would risk creating a duplicate alongside the edited version.
+- **Revert** (`POST .../criteria/{criterion_id}/revert`) is the other case: a criterion that's still present but has been *edited*, where HR wants to undo the edit and get the original Gemini wording back. This overwrites the existing row in place rather than creating a new one.
+
+Both rely on each `Criterion`/`JobProfile` tracking the index it was created from in the JD upload's stored Gemini response (`source_index` / `source_post_index`) -- no new Gemini call is made for either operation, since the original parse is already saved. Criteria HR added manually have no source index, so restore always skips them and revert returns a 422 for them (nothing to revert to). This only works for profiles created after this tracking was added -- older profiles will get a 422 explaining that no source data is available.
 
 ### Candidate Upload
 | Method | Path | Purpose |
