@@ -149,12 +149,22 @@ export const ReportsPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-5 text-right">
-                      <Link
-                        to={`/candidate/${profileId}/${c.id}`}
-                        className="text-[11px] font-bold text-primary hover:underline"
-                      >
-                        Review →
-                      </Link>
+                      <div className="flex items-center justify-end gap-3">
+                        {c.status === 'eligible' && (
+                          <Link
+                            to={`/document-verifier/${profileId}/${c.id}`}
+                            className="text-[11px] font-bold text-success hover:underline"
+                          >
+                            Verify docs →
+                          </Link>
+                        )}
+                        <Link
+                          to={`/candidate/${profileId}/${c.id}`}
+                          className="text-[11px] font-bold text-primary hover:underline"
+                        >
+                          Review →
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, FileCheck2, ShieldCheck, User, Mail, Calendar, Tag, CheckCircle2, XCircle, HelpCircle, BookOpen } from 'lucide-react';
+import { ArrowLeft, FileCheck2, ShieldCheck, User, Mail, Calendar, Tag, CheckCircle2, XCircle, HelpCircle, BookOpen, PlayCircle, Phone } from 'lucide-react';
 import { useCandidateReview, useOverrideStatus } from '../../hooks/useReview';
+import { useEvaluateCandidate } from '../../hooks/useScreening';
 import { StatusBadge } from '../../components/StatusBadge';
 import { formatDateTime, formatDate } from '../../lib/format';
 
@@ -17,10 +18,12 @@ export const CandidatePage: React.FC = () => {
   const { profileId, candidateId } = useParams<{ profileId: string; candidateId: string }>();
   const { data: review, isLoading } = useCandidateReview(profileId, candidateId);
   const overrideStatus = useOverrideStatus(profileId, candidateId);
+  const evaluateCandidate = useEvaluateCandidate(profileId);
 
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<(typeof OVERRIDE_OPTIONS)[number]>('eligible');
   const [reason, setReason] = useState('');
+  const [screenError, setScreenError] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -38,6 +41,16 @@ export const CandidatePage: React.FC = () => {
     await overrideStatus.mutateAsync({ new_status: newStatus, reason });
     setOverrideOpen(false);
     setReason('');
+  };
+
+  const handleScreen = async () => {
+    if (!candidateId) return;
+    setScreenError(null);
+    try {
+      await evaluateCandidate.mutateAsync(candidateId);
+    } catch (err: any) {
+      setScreenError(err?.detail || err?.message || 'Screening failed. Check the backend logs.');
+    }
   };
 
   const passCount = review.evaluations.filter(e => e.result === 'pass').length;
@@ -69,6 +82,14 @@ export const CandidatePage: React.FC = () => {
 
       {/* Action buttons */}
       <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={handleScreen}
+          disabled={evaluateCandidate.isPending}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity"
+        >
+          <PlayCircle className="w-4 h-4" />
+          {evaluateCandidate.isPending ? 'Screening…' : 'Screen this Candidate'}
+        </button>
         <Link
           to={`/document-verifier/${profileId}/${candidateId}`}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-card border border-border text-foreground hover:border-primary/40 hover:text-primary transition-all"
@@ -81,13 +102,20 @@ export const CandidatePage: React.FC = () => {
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
             overrideOpen
               ? 'bg-accent border border-border text-foreground'
-              : 'bg-primary text-primary-foreground hover:opacity-90'
+              : 'bg-card border border-border text-foreground hover:border-primary/40 hover:text-primary'
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
           Override Status
         </button>
       </div>
+
+      {/* Screen error */}
+      {screenError && (
+        <div className="p-3 bg-danger/10 border border-danger/20 text-danger rounded-xl text-xs font-semibold">
+          {screenError}
+        </div>
+      )}
 
       {/* Override panel */}
       {overrideOpen && (
@@ -127,6 +155,75 @@ export const CandidatePage: React.FC = () => {
           </div>
         </form>
       )}
+
+      {/* Candidate personal details */}
+      <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <User className="w-4 h-4 text-primary" />
+          </div>
+          <h2 className="font-bold text-sm text-foreground">Candidate Details</h2>
+        </div>
+        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
+          {review.email && (
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-widest text-muted flex items-center gap-1 mb-0.5">
+                <Mail className="w-3 h-3" /> Email
+              </dt>
+              <dd className="text-xs font-semibold text-foreground break-all">{review.email}</dd>
+            </div>
+          )}
+          {review.phone && (
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-widest text-muted flex items-center gap-1 mb-0.5">
+                <Phone className="w-3 h-3" /> Phone
+              </dt>
+              <dd className="text-xs font-semibold text-foreground">{review.phone}</dd>
+            </div>
+          )}
+          {review.dob && (
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-widest text-muted flex items-center gap-1 mb-0.5">
+                <Calendar className="w-3 h-3" /> Date of Birth
+              </dt>
+              <dd className="text-xs font-semibold text-foreground">{formatDate(review.dob)}</dd>
+            </div>
+          )}
+          {review.gender && (
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-widest text-muted flex items-center gap-1 mb-0.5">
+                <User className="w-3 h-3" /> Gender
+              </dt>
+              <dd className="text-xs font-semibold text-foreground">{review.gender}</dd>
+            </div>
+          )}
+          {review.normalized_category && (
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-widest text-muted flex items-center gap-1 mb-0.5">
+                <Tag className="w-3 h-3" /> Category
+              </dt>
+              <dd className="text-xs font-semibold text-foreground">
+                {review.normalized_category}
+                {review.raw_category && review.raw_category !== review.normalized_category && (
+                  <span className="text-muted font-medium"> ({review.raw_category})</span>
+                )}
+              </dd>
+            </div>
+          )}
+          {review.ingestion_status && (
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-widest text-muted mb-0.5">Documents</dt>
+              <dd><StatusBadge status={review.ingestion_status} /></dd>
+            </div>
+          )}
+          {review.computed_status && review.status_overridden && (
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-widest text-muted mb-0.5">AI Decision</dt>
+              <dd><StatusBadge status={review.computed_status} /></dd>
+            </div>
+          )}
+        </dl>
+      </div>
 
       {/* Evaluation summary bar */}
       {review.evaluations.length > 0 && (

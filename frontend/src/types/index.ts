@@ -124,6 +124,7 @@ export interface ScreeningRun {
   processed_count: number;
   failed_count: number;
   status: 'running' | 'completed' | 'failed' | string;
+  error_message?: string | null;
   started_at: string;
   completed_at?: string | null;
 }
@@ -143,6 +144,11 @@ export interface CandidateReviewDetail {
   candidate_id: string;
   name?: string | null;
   email?: string | null;
+  phone?: string | null;
+  dob?: string | null;
+  gender?: string | null;
+  raw_category?: string | null;
+  normalized_category?: string | null;
   ingestion_status: string;
   computed_status?: CandidateStatus | null;
   status: CandidateStatus;

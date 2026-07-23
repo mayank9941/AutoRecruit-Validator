@@ -21,7 +21,7 @@ createdb ihmcl_hr
 
 ### 2. Install Python dependencies
 ```bash
-cd ihmcl_backend
+cd backend
 python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # Mac/Linux

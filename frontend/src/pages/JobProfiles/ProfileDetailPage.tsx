@@ -4,7 +4,7 @@ import {
   Edit2, Trash2, Plus, Save, PlayCircle, BarChart3, FileCheck2, Users, RotateCcw,
 } from 'lucide-react';
 import { useJobProfile, useAddCriterion, useUpdateCriterion, useDeleteCriterion } from '../../hooks/useJobProfile';
-import { useCandidates, useResetCandidates } from '../../hooks/useCandidates';
+import { useCandidates } from '../../hooks/useCandidates';
 import { useStartScreening, useScreeningRun } from '../../hooks/useScreening';
 import { useBatchVerification } from '../../hooks/useVerification';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,7 +23,7 @@ export const ProfileDetailPage: React.FC = () => {
   const deleteCriterion = useDeleteCriterion(profileId);
   const startScreening = useStartScreening(profileId);
   const batchVerification = useBatchVerification(profileId);
-  const resetCandidates = useResetCandidates(profileId);
+
 
   const queryClient = useQueryClient();
   const [runId, setRunId] = useState<string | null>(null);
@@ -309,6 +309,11 @@ export const ProfileDetailPage: React.FC = () => {
                     }}
                   />
                 </div>
+                {run.error_message && (
+                  <p className="text-[11px] font-semibold text-danger bg-danger/10 border border-danger/20 rounded-xl px-3 py-2">
+                    Error: {run.error_message}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -326,7 +331,7 @@ export const ProfileDetailPage: React.FC = () => {
               {batchVerification.isPending ? 'Verifying…' : 'Verify All Eligible'}
             </button>
             {batchVerification.data && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between text-[11px] font-bold text-foreground">
                   <span>
                     {batchVerification.data.verified_count}/{batchVerification.data.total_eligible} verified
@@ -342,6 +347,40 @@ export const ProfileDetailPage: React.FC = () => {
                     }}
                   />
                 </div>
+                {/* Per-candidate breakdown */}
+                {batchVerification.data.candidate_results.length > 0 && (
+                  <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
+                    {batchVerification.data.candidate_results.map((r) => {
+                      const cand = candidates?.find((c) => c.id === r.candidate_id);
+                      const label = cand?.name || cand?.external_id || r.candidate_id.slice(0, 8);
+                      if (r.skipped) {
+                        return (
+                          <div key={r.candidate_id} className="flex items-center justify-between gap-2 py-1.5 px-3 rounded-xl bg-accent/40 border border-border">
+                            <span className="text-[11px] font-semibold text-foreground truncate">{label}</span>
+                            <span className="text-[10px] font-bold text-muted shrink-0">skipped</span>
+                          </div>
+                        );
+                      }
+                      const matched = r.verifications.filter((v) => v.match_status === 'matched').length;
+                      const mismatched = r.verifications.filter((v) => v.match_status === 'mismatch').length;
+                      const lowConf = r.verifications.filter((v) => v.match_status === 'low_confidence').length;
+                      return (
+                        <Link
+                          key={r.candidate_id}
+                          to={`/document-verifier/${profile.id}/${r.candidate_id}`}
+                          className="flex items-center justify-between gap-2 py-1.5 px-3 rounded-xl bg-accent/40 border border-border hover:border-primary/40 transition-colors"
+                        >
+                          <span className="text-[11px] font-semibold text-foreground truncate">{label}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {matched > 0 && <span className="text-[10px] font-bold text-success">{matched}✓</span>}
+                            {mismatched > 0 && <span className="text-[10px] font-bold text-danger">{mismatched}✗</span>}
+                            {lowConf > 0 && <span className="text-[10px] font-bold text-warning">{lowConf}?</span>}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -357,21 +396,6 @@ export const ProfileDetailPage: React.FC = () => {
               <span className="text-[10px] font-extrabold px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full">
                 {candidates.length} total
               </span>
-            )}
-            {candidates && candidates.length > 0 && (
-              <button
-                onClick={() => {
-                  if (window.confirm(`Remove all ${candidates.length} candidate${candidates.length === 1 ? '' : 's'} from this profile? This cannot be undone.`)) {
-                    resetCandidates.mutate();
-                  }
-                }}
-                disabled={resetCandidates.isPending}
-                title="Reset — delete all candidates and start fresh"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-danger bg-danger/10 border border-danger/20 hover:bg-danger/20 disabled:opacity-50 transition-colors"
-              >
-                <RotateCcw className="w-3 h-3" />
-                {resetCandidates.isPending ? 'Resetting…' : 'Reset'}
-              </button>
             )}
           </div>
         </div>
