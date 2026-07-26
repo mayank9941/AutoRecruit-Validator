@@ -31,8 +31,8 @@ from app.db.base import Base
 from app.db.session import engine
 # Models need to be imported here so that Base.metadata "sees" them when
 # create_all() is called -- otherwise their tables won't be created.
-from app.models import hr_user, job_profile, candidate, criterion_evaluation, screening_run, document_verification  # noqa: F401
-from app.routers import auth, jd_upload, job_profiles, candidates, screening, results, review, dashboard, verification
+from app.models import hr_user, job_profile, candidate, criterion_evaluation, screening_run  # noqa: F401
+from app.routers import auth, jd_upload, job_profiles, candidates, screening, results, review, dashboard
 
 app = FastAPI(title="IHMCL HR Screening System")
 
@@ -69,7 +69,6 @@ app.include_router(screening.batch_router)
 app.include_router(results.router)
 app.include_router(review.router)
 app.include_router(dashboard.router)
-app.include_router(verification.router)
 
 
 @app.get("/")

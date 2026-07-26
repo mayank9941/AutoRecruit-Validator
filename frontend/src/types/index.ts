@@ -18,6 +18,8 @@ export interface Criterion {
   description: string;
   is_essential: boolean;
   display_order: number;
+  /** Skill criteria only: minimum match % required when essential. */
+  required_match_percentage?: number | null;
 }
 
 export interface AgeRelaxationRule {
@@ -89,6 +91,7 @@ export interface Candidate {
 export interface CandidateUploadSummary {
   job_profile_id: string;
   total_candidates_found: number;
+  replaced_candidates?: number;
   documents_complete: number;
   documents_incomplete: number;
   no_documents_found: number;
@@ -103,6 +106,7 @@ export interface CriterionEvaluation {
   id: string;
   criterion_id: string;
   result: 'pass' | 'fail' | 'needs_review' | string;
+  match_percentage?: number | null;
   citation_document?: string | null;
   citation_page?: number | null;
   reasoning?: string | null;
@@ -135,6 +139,7 @@ export interface CriterionEvaluationDetail {
   criterion_description: string;
   is_essential: boolean;
   result: string;
+  match_percentage?: number | null;
   citation_document?: string | null;
   citation_page?: number | null;
   reasoning?: string | null;
@@ -208,35 +213,3 @@ export interface DashboardSummary {
   recent_screening_runs: RecentScreeningRun[];
 }
 
-// ---- Document Verification ----
-
-export interface DocumentVerification {
-  id: string;
-  field_name: string;
-  source_document_type: string;
-  form_value?: string | null;
-  extracted_value?: string | null;
-  extraction_confidence?: string | null;
-  match_status: 'matched' | 'mismatch' | 'low_confidence' | 'extraction_failed' | string;
-  hr_decision?: 'verified' | 'rejected' | null;
-  hr_notes?: string | null;
-  verified_by?: string | null;
-  verified_at?: string | null;
-}
-
-export interface CandidateVerificationSummary {
-  candidate_id: string;
-  skipped: boolean;
-  skip_reason?: string | null;
-  verifications: DocumentVerification[];
-}
-
-export interface BatchVerificationResult {
-  job_profile_id: string;
-  total_eligible: number;
-  verified_count: number;
-  skipped_count: number;
-  failed_count: number;
-  status: string;
-  candidate_results: CandidateVerificationSummary[];
-}

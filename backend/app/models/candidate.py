@@ -17,7 +17,7 @@ matters because a candidate with missing documents should be visibly
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, DateTime, ForeignKey, JSON, Boolean
+from sqlalchemy import String, DateTime, ForeignKey, JSON, Boolean, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -103,6 +103,13 @@ class CandidateDocument(Base):
 
     file_path: Mapped[str] = mapped_column(String(1000))
     original_filename: Mapped[str] = mapped_column(String(500))
+
+    # Page-marked text extracted from the document (the exact blob sent to
+    # Gemini during screening), cached at ingestion time so screening never
+    # re-parses PDFs. "" for non-PDF/unreadable documents; NULL means "not
+    # extracted yet" (rows from before this column existed -- backfilled
+    # lazily on first screening).
+    extracted_text: Mapped[str] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

@@ -4,8 +4,6 @@ import {
   LayoutDashboard,
   Settings,
   Briefcase,
-  HelpCircle,
-  FileCheck2,
   LogOut,
   ChevronRight,
 } from 'lucide-react';
@@ -14,7 +12,6 @@ import { useAuth } from '../context/AuthContext';
 const NAV_ITEMS = [
   { to: '/', end: true, icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/recruitment', end: false, icon: Briefcase, label: 'Job Profiles' },
-  { to: '/document-verifier', end: false, icon: FileCheck2, label: 'Document Verifier' },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -26,28 +23,28 @@ export const Sidebar: React.FC = () => {
     <div className="w-64 bg-card border-r border-border h-screen flex flex-col fixed left-0 top-0 z-20">
       {/* Branding */}
       <div className="px-5 py-5 border-b border-border flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
+        <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-sm">
           <img src="/ihmcl-logo.png" alt="IHMCL" className="w-7 h-7 object-contain" />
         </div>
         <div className="min-w-0">
-          <h1 className="font-black text-foreground tracking-tight text-sm leading-tight">RecruitAI Validator</h1>
-          <span className="text-[10px] font-bold text-muted tracking-widest uppercase">IHMCL Screening</span>
+          <h1 className="font-bold text-foreground text-sm leading-tight">RecruitAI Validator</h1>
+          <span className="text-xs font-normal text-muted">IHMCL screening</span>
         </div>
       </div>
 
       {/* Main nav */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
-        <span className="px-2 mb-2 text-[9px] font-black uppercase tracking-widest text-muted/60">Main</span>
+        <span className="px-2 mb-2 text-xs text-muted">Main</span>
         {NAV_ITEMS.map(({ to, end, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             end={end}
             className={({ isActive }) =>
-              `group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+              `group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium transition-all duration-150 ${
                 isActive
                   ? 'bg-primary/10 text-primary'
-                  : 'text-muted hover:bg-accent hover:text-foreground'
+                  : 'text-foreground hover:bg-accent'
               }`
             }
           >
@@ -69,20 +66,20 @@ export const Sidebar: React.FC = () => {
       <div className="px-3 pb-4 border-t border-border pt-3 flex flex-col gap-0.5">
         {/* User chip */}
         <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-          <div className="w-7 h-7 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-black text-[10px] shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-bold text-xs shrink-0">
             {initials}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-foreground truncate capitalize">{displayName}</p>
-            <p className="text-[10px] text-muted font-medium truncate">{user?.email}</p>
+            <p className="text-sm font-semibold text-foreground truncate capitalize">{displayName}</p>
+            <p className="text-xs text-foreground font-normal truncate">{user?.email}</p>
           </div>
         </div>
 
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
-              isActive ? 'bg-primary/10 text-primary' : 'text-muted hover:bg-accent hover:text-foreground'
+            `flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium transition-all duration-150 ${
+              isActive ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'
             }`
           }
         >
@@ -91,19 +88,11 @@ export const Sidebar: React.FC = () => {
         </NavLink>
 
         <button
-          onClick={() => alert('IHMCL HR Screening Support\nFor queries email: support@ihmcl.example')}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-muted hover:bg-accent hover:text-foreground transition-all duration-150 text-left w-full"
-        >
-          <HelpCircle className="w-4.5 h-4.5 shrink-0" />
-          Help & Support
-        </button>
-
-        <button
           onClick={() => logout()}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-danger hover:bg-danger/10 transition-all duration-150 text-left w-full mt-1"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium text-danger hover:bg-danger/10 transition-all duration-150 text-left w-full mt-1"
         >
           <LogOut className="w-4.5 h-4.5 shrink-0" />
-          Sign Out
+          Sign out
         </button>
       </div>
     </div>

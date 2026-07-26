@@ -10,7 +10,6 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import JobProfilesPage from './pages/JobProfiles/JobProfilesPage';
 import ProfileDetailPage from './pages/JobProfiles/ProfileDetailPage';
 import CandidatePage from './pages/Candidate/CandidatePage';
-import DocumentVerifierPage from './pages/DocumentVerifier/DocumentVerifierPage';
 import ReportsPage from './pages/Reports/ReportsPage';
 import SettingsPage from './pages/Settings/SettingsPage';
 
@@ -43,11 +42,6 @@ function App() {
             <Route path="/recruitment" element={<Protected><JobProfilesPage /></Protected>} />
             <Route path="/recruitment/:profileId" element={<Protected><ProfileDetailPage /></Protected>} />
             <Route path="/candidate/:profileId/:candidateId" element={<Protected><CandidatePage /></Protected>} />
-            <Route path="/document-verifier" element={<Protected><DocumentVerifierPage /></Protected>} />
-            <Route
-              path="/document-verifier/:profileId/:candidateId"
-              element={<Protected><DocumentVerifierPage /></Protected>}
-            />
             <Route path="/reports/:profileId" element={<Protected><ReportsPage /></Protected>} />
             <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
           </Routes>

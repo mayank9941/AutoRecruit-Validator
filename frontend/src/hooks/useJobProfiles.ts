@@ -9,6 +9,22 @@ export function useJobProfiles() {
   });
 }
 
+export function useDeleteProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { deleted_profile_id: string; deleted_candidates: number; jd_upload_deleted: boolean },
+    Error,
+    string
+  >({
+    mutationFn: (profileId: string) => api.delete(`/jd/profiles/${profileId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['job-profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+    },
+  });
+}
+
 export function useUploadJD() {
   const queryClient = useQueryClient();
 

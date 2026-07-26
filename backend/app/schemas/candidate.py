@@ -36,6 +36,9 @@ class CandidateOut(BaseModel):
 class CandidateUploadSummary(BaseModel):
     job_profile_id: str
     total_candidates_found: int
+    # How many of those replaced an existing candidate (matched by the
+    # Excel "Id." column) instead of being newly created.
+    replaced_candidates: int = 0
     documents_complete: int
     documents_incomplete: int
     no_documents_found: int

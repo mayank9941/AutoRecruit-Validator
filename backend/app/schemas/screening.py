@@ -13,6 +13,7 @@ class CriterionEvaluationOut(BaseModel):
     id: str
     criterion_id: str
     result: str
+    match_percentage: Optional[int] = None
     citation_document: Optional[str] = None
     citation_page: Optional[int] = None
     reasoning: Optional[str] = None

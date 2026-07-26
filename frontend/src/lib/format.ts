@@ -18,24 +18,21 @@ export function formatDateTime(value?: string | null): string {
   });
 }
 
+// Plain-language labels — spelled out for non-technical HR users.
 const STATUS_LABEL: Record<string, string> = {
   eligible: 'Eligible',
-  not_eligible: 'Not Eligible',
-  needs_review: 'Needs Review',
-  not_evaluated: 'Not Evaluated',
-  documents_complete: 'Documents Complete',
-  documents_incomplete: 'Documents Incomplete',
-  no_documents_found: 'No Documents Found',
-  excel_row_not_found: 'Row Not Found',
-  corrupt_zip: 'Corrupt ZIP',
+  not_eligible: 'Not eligible',
+  needs_review: 'Needs manual review',
+  not_evaluated: 'Not screened yet',
+  documents_complete: 'Documents complete',
+  documents_incomplete: 'Some documents missing',
+  no_documents_found: 'No documents found',
+  excel_row_not_found: 'Not found in roster',
+  corrupt_zip: 'ZIP file unreadable',
   pass: 'Pass',
   fail: 'Fail',
-  needs_review_criterion: 'Needs Review',
-  matched: 'Matched',
-  mismatch: 'Mismatch',
-  low_confidence: 'Low Confidence',
-  extraction_failed: 'Extraction Failed',
-  running: 'Running',
+  needs_review_criterion: 'Needs manual review',
+  running: 'In progress',
   completed: 'Completed',
   failed: 'Failed',
 };

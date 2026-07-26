@@ -34,6 +34,11 @@ class CriterionEvaluation(Base):
     # whether the evaluation came from Gemini or the rule-based age check.)
     result: Mapped[str] = mapped_column(String(20))
 
+    # Only set for "skill" criteria: the percentage of the JD's skill list
+    # the candidate's documents show evidence of (0-100). Informational for
+    # HR -- skills never reject a candidate. NULL for all other types.
+    match_percentage: Mapped[int] = mapped_column(Integer, nullable=True)
+
     citation_document: Mapped[str] = mapped_column(String(500), nullable=True)
     citation_page: Mapped[int] = mapped_column(Integer, nullable=True)
     reasoning: Mapped[str] = mapped_column(Text, nullable=True)

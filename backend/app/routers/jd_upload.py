@@ -135,7 +135,7 @@ async def upload_jd(file: UploadFile = File(...), db: Session = Depends(get_db))
                 job_profile_id=profile.id,
                 type=crit.get("type", "other"),
                 description=description,
-                is_essential=is_essential_from_description(description),
+                is_essential=is_essential_from_description(description, crit.get("type", "other")),
                 display_order=idx,
                 source_index=idx,
             ))

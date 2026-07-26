@@ -16,6 +16,7 @@ class CriterionOut(BaseModel):
     description: str
     is_essential: bool
     display_order: int
+    required_match_percentage: Optional[int] = None
 
 
 class AgeRelaxationRuleOut(BaseModel):
@@ -59,6 +60,8 @@ class CriterionCreate(BaseModel):
     description: str
     is_essential: bool = True
     display_order: Optional[int] = None  # None -> appended to the end of the list
+    # Skill criteria only: minimum match % required when essential.
+    required_match_percentage: Optional[int] = None
 
 
 class CriterionUpdate(BaseModel):
@@ -67,6 +70,7 @@ class CriterionUpdate(BaseModel):
     description: Optional[str] = None
     is_essential: Optional[bool] = None
     display_order: Optional[int] = None
+    required_match_percentage: Optional[int] = None
 
 
 class CriteriaRestoreResponse(BaseModel):

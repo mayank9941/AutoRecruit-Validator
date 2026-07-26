@@ -5,11 +5,17 @@ This is HR flow Step 4 -- "Review/edit criteria (optional)" -- where HR
 opens a profile and can view/edit/add/delete its criteria.
 """
 
+import os
+import shutil
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models.job_profile import JobProfile, Criterion
+from app.models.job_profile import JobProfile, Criterion, JDUpload
+from app.models.candidate import Candidate, CandidateDocument
+from app.models.criterion_evaluation import CriterionEvaluation
+from app.models.screening_run import ScreeningRun
 from app.schemas.job_profile import (
     JobProfileOut,
     CriterionOut,
@@ -55,6 +61,87 @@ def list_job_profiles(db: Session = Depends(get_db)):
     return profiles
 
 
+@router.delete("/{profile_id}")
+def delete_job_profile(profile_id: str, db: Session = Depends(get_db)):
+    """
+    Permanently deletes a Job Profile and EVERYTHING associated with it:
+    candidates, their documents, criterion evaluations, document
+    verifications, screening runs, criteria and age relaxation rules.
+
+    If this was the last profile from its JD upload, the JD upload record
+    is deleted too -- which frees its file hash, so the same JD PDF can be
+    uploaded again and re-parsed fresh.
+    """
+    profile = _get_profile_or_404(profile_id, db)
+
+    candidate_ids = [
+        row[0]
+        for row in db.query(Candidate.id).filter(Candidate.job_profile_id == profile_id).all()
+    ]
+
+    # Collect per-candidate document folders for best-effort disk cleanup
+    # AFTER the DB commit succeeds.
+    document_dirs = set()
+    if candidate_ids:
+        for (file_path,) in (
+            db.query(CandidateDocument.file_path)
+            .filter(CandidateDocument.candidate_id.in_(candidate_ids))
+            .all()
+        ):
+            document_dirs.add(os.path.dirname(file_path))
+
+    # Children first (FKs have no ON DELETE CASCADE), then the profile.
+    if candidate_ids:
+        db.query(CriterionEvaluation).filter(
+            CriterionEvaluation.candidate_id.in_(candidate_ids)
+        ).delete(synchronize_session=False)
+        db.query(CandidateDocument).filter(
+            CandidateDocument.candidate_id.in_(candidate_ids)
+        ).delete(synchronize_session=False)
+        db.query(Candidate).filter(Candidate.job_profile_id == profile_id).delete(
+            synchronize_session=False
+        )
+    db.query(ScreeningRun).filter(ScreeningRun.job_profile_id == profile_id).delete(
+        synchronize_session=False
+    )
+
+    jd_upload = profile.source_jd_upload
+    db.delete(profile)  # cascade removes criteria + age relaxation rules
+    db.flush()
+
+    jd_upload_deleted = False
+    jd_pdf_path = None
+    if jd_upload is not None:
+        remaining = (
+            db.query(JobProfile).filter(JobProfile.source_jd_upload_id == jd_upload.id).count()
+        )
+        if remaining == 0:
+            jd_pdf_path = jd_upload.storage_path
+            db.delete(jd_upload)
+            jd_upload_deleted = True
+
+    db.commit()
+
+    # Best-effort disk cleanup -- DB state is already consistent, so a
+    # failure to remove files must not fail the request.
+    for directory in document_dirs:
+        try:
+            shutil.rmtree(directory)
+        except OSError:
+            pass
+    if jd_pdf_path:
+        try:
+            os.remove(jd_pdf_path)
+        except OSError:
+            pass
+
+    return {
+        "deleted_profile_id": profile_id,
+        "deleted_candidates": len(candidate_ids),
+        "jd_upload_deleted": jd_upload_deleted,
+    }
+
+
 @router.get("/{profile_id}", response_model=JobProfileOut)
 def get_job_profile(profile_id: str, db: Session = Depends(get_db)):
     """Full detail for one profile -- the Criteria Editor screen loads its data from here."""
@@ -90,6 +177,7 @@ def add_criterion(profile_id: str, payload: CriterionCreate, db: Session = Depen
         description=payload.description,
         is_essential=payload.is_essential,
         display_order=display_order,
+        required_match_percentage=payload.required_match_percentage,
     )
     db.add(criterion)
     db.commit()
@@ -221,7 +309,7 @@ def restore_deleted_criteria(profile_id: str, db: Session = Depends(get_db)):
             job_profile_id=profile.id,
             type=crit.get("type", "other"),
             description=description,
-            is_essential=is_essential_from_description(description),
+            is_essential=is_essential_from_description(description, crit.get("type", "other")),
             display_order=max_display_order,
             source_index=idx,
         )
@@ -277,7 +365,7 @@ def revert_criterion_to_original(profile_id: str, criterion_id: str, db: Session
 
     criterion.type = original.get("type", "other")
     criterion.description = original_description
-    criterion.is_essential = is_essential_from_description(original_description)
+    criterion.is_essential = is_essential_from_description(original_description, original.get("type", "other"))
     # display_order is intentionally left as-is -- reverting content
     # shouldn't also silently reorder the list.
 

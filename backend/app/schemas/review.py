@@ -19,6 +19,7 @@ class CriterionEvaluationDetail(BaseModel):
     criterion_description: str
     is_essential: bool
     result: str
+    match_percentage: Optional[int] = None
     citation_document: Optional[str] = None
     citation_page: Optional[int] = None
     reasoning: Optional[str] = None

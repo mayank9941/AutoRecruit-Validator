@@ -10,6 +10,8 @@ any other reason, the whole batch does not stop -- only that candidate is
 marked "not_evaluated".
 """
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -86,53 +88,89 @@ def evaluate_single_candidate(profile_id: str, candidate_id: str, db: Session = 
     )
 
 
-def _run_batch_screening(run_id: str, profile_id: str, candidate_ids: list[str]) -> None:
+def _increment_run_counters(db: Session, run_id: str, failed: bool = False) -> None:
     """
-    Runs in the background, after the POST /screen request has already
-    returned to the caller. Needs its OWN database session -- the
-    request-scoped session from Depends(get_db) is closed by the time this
-    function runs.
+    Atomic SQL increments -- multiple worker threads update the same
+    ScreeningRun row concurrently, so read-modify-write on an ORM object
+    would lose counts.
+    """
+    values = {ScreeningRun.processed_count: ScreeningRun.processed_count + 1}
+    if failed:
+        values[ScreeningRun.failed_count] = ScreeningRun.failed_count + 1
+    db.query(ScreeningRun).filter(ScreeningRun.id == run_id).update(values)
+    db.commit()
+
+
+def _screen_one_candidate(run_id: str, profile_id: str, candidate_id: str) -> None:
+    """
+    Worker for one candidate. Runs on a thread-pool thread, so it needs its
+    OWN database session -- SQLAlchemy sessions are not thread-safe.
     """
     db = SessionLocal()
     try:
-        run = db.query(ScreeningRun).filter(ScreeningRun.id == run_id).first()
-        profile = db.query(JobProfile).filter(JobProfile.id == profile_id).first()
+        candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+        if candidate is None:
+            _increment_run_counters(db, run_id)
+            return
 
-        for candidate_id in candidate_ids:
-            candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-
-            if candidate is None:
-                run.processed_count += 1
-                db.commit()
-                continue
-
-            try:
-                if candidate.ingestion_status != "documents_complete":
-                    candidate.status = "not_evaluated"
-                    candidate.computed_status = None
-                    candidate.status_overridden = False
-                    candidate.override_reason = None
-                    candidate.overridden_by = None
-                    candidate.overridden_at = None
-                else:
-                    evaluate_candidate(db, candidate, profile)
-                db.commit()
-            except Exception:
-                # A single candidate's failure must never stop the batch --
-                # roll back any partial changes for this candidate, mark
-                # them not_evaluated, and move on to the next one.
-                db.rollback()
-                candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+        try:
+            if candidate.ingestion_status != "documents_complete":
                 candidate.status = "not_evaluated"
-                run.failed_count += 1
-                db.commit()
-
-            run.processed_count += 1
+                candidate.computed_status = None
+                candidate.status_overridden = False
+                candidate.override_reason = None
+                candidate.overridden_by = None
+                candidate.overridden_at = None
+            else:
+                profile = db.query(JobProfile).filter(JobProfile.id == profile_id).first()
+                evaluate_candidate(db, candidate, profile)
             db.commit()
+            _increment_run_counters(db, run_id)
+        except Exception:
+            # A single candidate's failure must never stop the batch --
+            # roll back any partial changes for this candidate, mark
+            # them not_evaluated, and let the other workers continue.
+            db.rollback()
+            candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+            if candidate is not None:
+                candidate.status = "not_evaluated"
+                db.commit()
+            _increment_run_counters(db, run_id, failed=True)
+    finally:
+        db.close()
 
-        run.status = "completed"
-        run.completed_at = datetime.utcnow()
-        db.commit()
+
+def _run_batch_screening(run_id: str, profile_id: str, candidate_ids: list[str]) -> None:
+    """
+    Runs in the background, after the POST /screen request has already
+    returned to the caller. Candidates are screened CONCURRENTLY on a
+    small thread pool (each candidate is one Gemini call + DB writes, all
+    independent of each other) -- SCREENING_CONCURRENCY in .env controls
+    the worker count.
+    """
+    workers = max(1, int(os.getenv("SCREENING_CONCURRENCY", "4")))
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [
+            executor.submit(_screen_one_candidate, run_id, profile_id, candidate_id)
+            for candidate_id in candidate_ids
+        ]
+        for future in futures:
+            # Per-candidate failures are already handled inside the worker;
+            # anything surfacing here is unexpected (e.g. DB down) and must
+            # not stop the run from being marked completed.
+            try:
+                future.result()
+            except Exception:
+                pass
+
+    db = SessionLocal()
+    try:
+        run = db.query(ScreeningRun).filter(ScreeningRun.id == run_id).first()
+        if run is not None:
+            run.status = "completed"
+            run.completed_at = datetime.utcnow()
+            db.commit()
     finally:
         db.close()
 

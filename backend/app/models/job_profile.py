@@ -101,6 +101,11 @@ class Criterion(Base):
     is_essential: Mapped[bool] = mapped_column(Boolean, default=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Only meaningful for "skill" criteria that HR marks essential: the
+    # minimum skills-match percentage (0-100) a candidate must reach, or
+    # they are rejected. NULL = the skill score stays informational.
+    required_match_percentage: Mapped[int] = mapped_column(Integer, nullable=True)
+
     # Index into the source post's "criteria" list (within
     # job_profile.source_jd_upload.gemini_raw_response) that this
     # criterion was originally created from. Set at creation time from a

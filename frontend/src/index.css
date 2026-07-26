@@ -68,6 +68,12 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Larger base size for readability — this app is used by non-technical,
+     older HR staff. All rem-based Tailwind sizes scale up from this. */
+  font-size: 17px;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);

@@ -70,6 +70,7 @@ def get_candidate_review(profile_id: str, candidate_id: str, db: Session = Depen
             criterion_description=e.criterion.description,
             is_essential=e.criterion.is_essential,
             result=e.result,
+            match_percentage=e.match_percentage,
             citation_document=e.citation_document,
             citation_page=e.citation_page,
             reasoning=e.reasoning,
