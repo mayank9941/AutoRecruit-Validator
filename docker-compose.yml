@@ -1,0 +1,65 @@
+# Full production stack: Postgres + FastAPI backend + Caddy (static
+# frontend + reverse proxy + automatic HTTPS).
+#
+#   cp .env.example .env   # then fill in real values
+#   docker compose up -d --build
+#
+# First-time setup after the stack is up:
+#   docker compose exec backend python scripts/create_hr_user.py hr@example.com
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ihmcl_hr
+      POSTGRES_USER: ihmcl
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The backend runs create_all() at import time, so it must not
+      # start until Postgres actually accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U ihmcl -d ihmcl_hr"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://ihmcl:${DB_PASSWORD}@db:5432/ihmcl_hr
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      SECRET_KEY: ${SECRET_KEY}
+      FRONTEND_ORIGINS: https://${DOMAIN}
+      # Must be "false" when running without HTTPS (IP-only / plain http),
+      # otherwise the browser refuses to store the login cookie.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    volumes:
+      # JD PDFs + candidate documents -- must survive container rebuilds.
+      - appstorage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    build: ./frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data      # TLS certificates
+      - caddyconfig:/config
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  appstorage:
+  caddydata:
+  caddyconfig:
