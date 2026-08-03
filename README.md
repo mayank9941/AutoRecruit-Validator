@@ -1,4 +1,19 @@
-# IHMCL HR Screening System -- Backend
+# IHMCL HR Screening System
+
+## Running the Frontend
+
+The React frontend lives in `frontend/`:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` -- it talks to the backend below, so start
+that first.
+
+# Backend
 
 FastAPI + PostgreSQL backend for the IHMCL HR Screening System. Covers the
 full flow from JD upload through candidate screening: **Login -> Upload JD

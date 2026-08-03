@@ -36,12 +36,16 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/upload", response_model=JDUploadResponse)
-async def upload_jd(file: UploadFile = File(...), db: Session = Depends(get_db)):
+def upload_jd(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    # Plain `def` (not async): the PDF extraction + Gemini call below are
+    # blocking and can take a while -- as a sync endpoint Starlette runs
+    # this on a worker thread, so long uploads don't freeze the event loop
+    # (which made every other request, including progress polling, hang).
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files can be uploaded right now")
 
     # ---- 1. Read the file and compute its hash (for duplicate detection) ----
-    contents = await file.read()
+    contents = file.file.read()
     file_hash = hashlib.sha256(contents).hexdigest()
 
     existing_upload = db.query(JDUpload).filter(JDUpload.file_hash == file_hash).first()

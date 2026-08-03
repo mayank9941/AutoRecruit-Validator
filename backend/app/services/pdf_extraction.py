@@ -10,7 +10,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             page_text = page.extract_text() or ""
-            text_parts.append(page_text)
+            text_parts.append(_clean_pdf_text(page_text))
     return "\n".join(text_parts)
 
 
@@ -31,8 +31,15 @@ MEANINGFUL_DOC_CHARS = 100
 MAX_OCR_PAGES_PER_DOC = 5
 
 
+def _clean_pdf_text(text: str) -> str:
+    """Broken PDF encoders sometimes emit NUL (0x00) bytes in the text
+    layer -- PostgreSQL TEXT columns reject strings containing them, which
+    made caching (and therefore screening) fail for affected candidates."""
+    return text.replace("\x00", "")
+
+
 def _marked_page(display_name: str, page_num: int, text: str) -> str:
-    return f"--- DOCUMENT: {display_name} | PAGE: {page_num} ---\n{text}\n"
+    return f"--- DOCUMENT: {display_name} | PAGE: {page_num} ---\n{_clean_pdf_text(text)}\n"
 
 
 def pdf_text_is_meaningful(marked_text: str) -> bool:

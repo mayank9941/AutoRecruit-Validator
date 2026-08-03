@@ -12,6 +12,7 @@ ready for the (future) screening/evaluation step. This is HR flow Step 5:
 """
 
 import os
+import shutil
 import uuid
 
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
@@ -23,7 +24,6 @@ from app.models.candidate import Candidate, CandidateDocument
 from app.models.criterion_evaluation import CriterionEvaluation
 from app.schemas.candidate import CandidateUploadSummary, CandidateOut
 from app.services.candidate_ingestion import load_candidate_master_data, process_master_zip
-from app.services.pdf_extraction import extract_marked_pdf_text, pdf_text_is_meaningful
 from app.services.auth_service import get_current_hr_user
 
 router = APIRouter(
@@ -48,12 +48,15 @@ def _delete_candidate_screening_data(db: Session, candidate_id: str) -> None:
 
 
 @router.post("/upload", response_model=CandidateUploadSummary)
-async def upload_candidates(
+def upload_candidates(
     profile_id: str,
     excel_file: UploadFile = File(...),
     master_zip_file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    # Plain `def` (not async): ZIP extraction + pandas parsing are blocking
+    # and can take minutes for a big batch -- as a sync endpoint Starlette
+    # runs this on a worker thread instead of freezing the event loop.
     profile = db.query(JobProfile).filter(JobProfile.id == profile_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail=f"Job Profile '{profile_id}' not found")
@@ -64,13 +67,16 @@ async def upload_candidates(
     batch_dir = os.path.join(UPLOAD_DIR, str(uuid.uuid4()))
     os.makedirs(batch_dir, exist_ok=True)
 
+    # Stream to disk in chunks -- reading a multi-GB master ZIP fully into
+    # memory (the old `await file.read()`) could exhaust RAM and kill the
+    # request, which surfaced as "upload failed" for big batches.
     excel_path = os.path.join(batch_dir, excel_file.filename)
     with open(excel_path, "wb") as f:
-        f.write(await excel_file.read())
+        shutil.copyfileobj(excel_file.file, f, length=1024 * 1024)
 
     zip_path = os.path.join(batch_dir, master_zip_file.filename)
     with open(zip_path, "wb") as f:
-        f.write(await master_zip_file.read())
+        shutil.copyfileobj(master_zip_file.file, f, length=1024 * 1024)
 
     try:
         df = load_candidate_master_data(excel_path)
@@ -176,22 +182,12 @@ async def upload_candidates(
         for doc_type, local_path in r.get("matched_documents", {}).items():
             original_filename = os.path.basename(local_path)
 
-            # Extract the document's page-marked text NOW, once, so
-            # screening runs never have to re-parse PDFs (that re-parsing
-            # was a significant part of why screening was slow).
-            if local_path.lower().endswith(".pdf"):
-                try:
-                    extracted_text = extract_marked_pdf_text(local_path, original_filename)
-                    if not pdf_text_is_meaningful(extracted_text):
-                        # Scanned/image PDF with no text layer. Leave NULL so
-                        # screening runs the Gemini-vision OCR fallback (in
-                        # the background, in parallel) and caches the result
-                        # -- doing OCR here would make uploads very slow.
-                        extracted_text = None
-                except Exception:
-                    extracted_text = None  # corrupt? let the OCR path try once more
-            else:
-                extracted_text = ""  # photos/signatures carry no evaluable text
+            # Text extraction is deliberately DEFERRED to the first
+            # screening run: build_document_context() extracts (with the
+            # OCR fallback for scans) in parallel background workers and
+            # caches the result on this row. Extracting here made large
+            # uploads take many minutes and fail on the client side.
+            extracted_text = None if local_path.lower().endswith(".pdf") else ""
 
             db.add(CandidateDocument(
                 candidate_id=candidate.id,
