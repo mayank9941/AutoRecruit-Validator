@@ -187,6 +187,12 @@ Rules:
   hold it. Reserve "uncertain" for cases where the relevant section is
   missing entirely, cut off, or the documents don't cover that topic at
   all.
+- A resume/CV statement is the candidate's own claim, not proof. If the
+  criterion concerns a formal qualification (a degree, certificate,
+  category, date of birth) and only the resume mentions it -- with no
+  supporting document (certificate, letter, official record) anywhere in
+  the context -- return "uncertain" and start the reasoning with
+  "Document incomplete:", naming the missing proof.
 - The citation MUST point to the specific document and page where you found
   the supporting (or contradicting) evidence.
 """
@@ -298,10 +304,20 @@ EVERY criterion is verified in TWO STAGES:
   satisfy the criterion?
   STAGE 2 -- DOCUMENTS vs DECLARED: do the candidate's documents actually
   prove what was declared (same qualification, same dates, same values)?
-"pass" requires BOTH stages to hold. A declaration that satisfies the JD but
-is contradicted by the documents, or not evidenced in them, does NOT count.
-A declaration that doesn't satisfy the JD is a "fail" regardless of what the
-documents say. The reasoning MUST cover both stages explicitly.
+"pass" requires BOTH stages to hold. A declaration that doesn't satisfy the
+JD is a "fail" regardless of what the documents say. When the declaration
+DOES satisfy the JD, stage 2 decides:
+  - the documents CONTRADICT the declaration (different degree, different
+    dates, different values) -> "fail".
+  - the documents PROVE the declaration -> "pass".
+  - the claim appears only in the resume/CV or application data, and the
+    supporting document that would actually prove it (degree certificate,
+    category certificate, experience letter, official record) is nowhere in
+    the documents -> "uncertain", NOT "fail". A resume is the candidate's
+    own claim, not proof. Start the reasoning with "Document incomplete:"
+    and name the missing proof.
+([experience] and [skill] criteria override this with their own type-specific
+rules below.) The reasoning MUST cover both stages explicitly.
 
 Return ONLY valid JSON, no markdown formatting, no backticks, no extra text.
 Return a JSON array containing EXACTLY one entry per criterion above, in the
@@ -312,6 +328,8 @@ same order, using exactly this shape:
     "index": <the criterion's number from the list above>,
     "result": "pass" | "fail" | "uncertain",
     "match_percentage": <integer 0-100 for [experience] and [skill] criteria; null for every other type>,
+    "matched_items": <[skill] criteria only: array of the listed requirements with DIRECT evidence; null for other types>,
+    "missing_items": <[skill] criteria only: array of the listed requirements without direct evidence; null for other types>,
     "citation": {{
       "document": "<the DOCUMENT name from the marker that supports your answer, or null if none found>",
       "page": <the PAGE number from the marker, or null if none found>
@@ -333,12 +351,15 @@ counts. Do the math, don't estimate:
   1. STAGE 1: check the experience the candidate DECLARED in their
      application data against the criterion -- both the number of years
      and the field.
-  2. STAGE 2: find EVERY declared job/employment period and verify it in
-     the documents (experience letters, salary slips, CV work history),
-     each with organization, start/end dates, and role. Treat a current
-     job with no end date as running until today. Only count periods that
-     are actually DOCUMENTED -- a declared period with no verifiable dates
-     in the documents contributes zero years.
+  2. STAGE 2: verify EVERY declared job/employment period against the
+     documents. A period counts as DOCUMENTED only when an uploaded
+     experience/relieving certificate from that company states BOTH the
+     joining date AND the resign/relieving date. A resume/CV work-history
+     entry, a salary slip, or a joining letter alone is NOT sufficient
+     proof. ONE exception: for the candidate's CURRENT employer (their
+     most recent job, declared as ongoing), a joining letter alone IS
+     acceptable -- treat that job as running from its joining date until
+     today.
   3. Decide for each documented job whether its role matches the
      criterion's field. Compute each MATCHING period's duration, then SUM
      them into total in-field documented experience. Count overlapping
@@ -346,10 +367,19 @@ counts. Do the math, don't estimate:
   4. "match_percentage" = round((documented in-field years / required
      years) x 100), capped at 100. E.g. 4 in-field years against 5
      required = 80.
-  5. "result": "pass" if documented in-field years >= the required years,
-     otherwise "fail". Experience that is undocumented OR in an unrelated
-     field does NOT count. Never return "uncertain" for an experience
-     criterion.
+  5. "result": "pass" if documented in-field years >= the required years.
+     Otherwise:
+       - "uncertain" if one or more declared in-field periods were
+         excluded ONLY because their proof was missing or incomplete (no
+         certificate at all, or a certificate/joining letter without the
+         resign date for a past employer), AND counting those declared
+         periods would meet the requirement. Start the reasoning with
+         "Document incomplete:" and name each such job and what proof is
+         missing.
+       - "fail" in every other case -- the declared experience itself
+         doesn't satisfy the criterion, or the documented shortfall isn't
+         caused by missing/incomplete documents (e.g. jobs in an
+         unrelated field).
   6. The reasoning MUST show the calculation, explicitly saying which jobs
      counted as in-field and which were excluded and why, e.g.:
      "Org A (Product Manager, Jan 2015 - Jun 2018) = 3.4 yrs, counted;
@@ -359,22 +389,36 @@ counts. Do the math, don't estimate:
 
 [skill] -- ONE consolidated list of the JD's qualitative skill/experience
 requirements (tools, technologies, methodologies, domain familiarity, track
-records). This is SCORED, never used to reject:
-  - "result" MUST be "pass" (a skill criterion can never fail a candidate).
-  - "match_percentage" = the percentage of the listed requirements that the
-    declared data and documents together show credible evidence of (CV work
-    descriptions, project details, certificates, tools named in experience
-    letters), as an integer 0-100.
-  - The reasoning MUST list which requirements matched and which are
-    missing, e.g. "Matched 5/9: Figma, Jira/Agile, product roadmaps,
-    Mixpanel, vendor management. Missing: payments/transaction platforms,
-    reconciliation lifecycle, financial systems compliance, growth metrics."
+records). This is SCORED item by item:
+  1. Break the criterion's description into its individual listed
+     requirements/items.
+  2. For EACH item, decide STRICTLY:
+     - MATCHED: the documents/declared data show DIRECT, explicit evidence
+       of that specific item -- the same skill, tool, domain, or an
+       unambiguous equivalent, actually named.
+     - MISSING: no evidence, or only related/adjacent/generic evidence.
+       Related is NOT matched: working at an "infrastructure company" does
+       NOT match "road/highway sector or InvIT experience"; "Excel" does
+       NOT match "Mixpanel/Amplitude"; "managed projects" does NOT match
+       "Agile/Scrum with Jira". When in doubt, the item is MISSING.
+  3. Fill "matched_items" and "missing_items" so every item appears in
+     exactly one of the two arrays.
+  4. "match_percentage" = round(100 x matched / total). It MUST agree with
+     your own two arrays -- if your reasoning says something is missing, it
+     cannot be counted as matched. Never inflate.
+  5. "result" MUST be "pass" (the score itself never fails a candidate --
+     any pass/fail threshold is applied separately by the system).
+  6. The reasoning MUST briefly cite the evidence for each matched item
+     (which document/role showed it) and plainly list what is missing.
 
 [education] / [age] / [other] -- pass/fail/uncertain as usual, applying the
 two-stage check: the declared qualification must satisfy the criterion AND
 the documents must prove that declared qualification (same degree, same
 institution details, same values). A mismatch between declaration and
-documents is a "fail".
+documents is a "fail". A declaration that satisfies the criterion but is
+backed only by the resume -- the actual proof document being missing -- is
+"uncertain" with the reasoning prefixed "Document incomplete:", per the
+stage rules above.
 
 GENERAL RULES (every criterion):
 - Base your answer ONLY on what's explicitly stated in the documents. Do not
@@ -408,9 +452,10 @@ def _normalize_batch_results(parsed, criterion_types: list[str]) -> list[dict]:
 
     `criterion_types` gives the type of each criterion (in prompt order) so
     experience entries can be held to their special contract: a match
-    percentage (documented years vs required years) plus a hard pass/fail --
-    experience that isn't documented doesn't count, so "uncertain" is never
-    allowed for experience.
+    percentage (documented years vs required years) plus pass/fail/
+    needs_review -- needs_review meaning the shortfall is caused purely by
+    missing/incomplete proof documents (e.g. a certificate without a resign
+    date), which HR must resolve manually.
     """
     expected_count = len(criterion_types)
     if not isinstance(parsed, list):
@@ -437,21 +482,36 @@ def _normalize_batch_results(parsed, criterion_types: list[str]) -> list[dict]:
             raise ValueError(f"batch response has invalid result for criterion {idx}")
 
         criterion_type = criterion_types[idx - 1]
-        if criterion_type in ("experience", "skill"):
+        if criterion_type == "skill":
+            # The percentage is recomputed HERE from the model's own
+            # matched/missing lists -- the model's arithmetic occasionally
+            # contradicts its own reasoning (e.g. "no road/highway
+            # experience found" yet 100%). The lists are the ground truth.
+            matched = entry.get("matched_items")
+            missing = entry.get("missing_items")
+            if isinstance(matched, list) and isinstance(missing, list) and (matched or missing):
+                entry["match_percentage"] = round(100 * len(matched) / (len(matched) + len(missing)))
+            else:
+                pct = entry.get("match_percentage")
+                if isinstance(pct, float):
+                    pct = round(pct)
+                if not isinstance(pct, int):
+                    raise ValueError(f"skill criterion {idx} is missing match_percentage")
+                entry["match_percentage"] = max(0, min(100, pct))
+            # Skills are informational -- a percentage, never a rejection
+            # (any threshold gating is applied by candidate_evaluation).
+            entry["result"] = "pass"
+        elif criterion_type == "experience":
             pct = entry.get("match_percentage")
             if isinstance(pct, float):
                 pct = round(pct)
             if not isinstance(pct, int):
-                raise ValueError(f"{criterion_type} criterion {idx} is missing match_percentage")
+                raise ValueError(f"experience criterion {idx} is missing match_percentage")
             entry["match_percentage"] = max(0, min(100, pct))
-            if criterion_type == "skill":
-                # Skills are informational -- a percentage, never a rejection.
-                entry["result"] = "pass"
-            elif entry["result"] == "needs_review":
-                # Experience is binary: documented total either meets the
-                # requirement or it doesn't. Undocumented experience doesn't
-                # count, so "uncertain" collapses to "fail".
-                entry["result"] = "fail"
+            # "needs_review" is allowed for experience: it means declared
+            # periods were excluded only because their proof was missing or
+            # incomplete (e.g. a certificate without a resign date for a
+            # past employer) -- HR must check the documents manually.
         else:
             entry["match_percentage"] = None
 
@@ -474,9 +534,13 @@ def evaluate_criteria_batch_with_gemini(
 
     `criteria` is a list of {"type": ..., "description": ...} dicts. The
     type drives how each criterion is judged: experience criteria sum the
-    candidate's DOCUMENTED job periods, compare the total against the
-    required years (a percentage), and hard-fail when the documents don't
-    evidence enough experience -- undocumented experience doesn't count.
+    candidate's DOCUMENTED job periods (proof = an experience certificate
+    with both joining and resign dates; a joining letter alone counts only
+    for the current employer, running until today) and compare the total
+    against the required years (a percentage). Declared periods whose proof
+    is missing or incomplete don't count -- they yield "needs_review"
+    ("Document incomplete") when they are what stands between the candidate
+    and a pass, and "fail" otherwise.
 
     Returns one result dict per criterion, in the same order as `criteria`,
     each shaped like evaluate_criterion_with_gemini()'s return value plus a
@@ -541,8 +605,6 @@ def evaluate_criteria_batch_with_gemini(
         result["match_percentage"] = None
         if criterion["type"] == "skill":
             result["result"] = "pass"  # skills never reject
-        elif criterion["type"] == "experience" and result["result"] == "needs_review":
-            result["result"] = "fail"  # undocumented experience doesn't count
         fallback_results.append(result)
     return fallback_results
 
