@@ -1,0 +1,26 @@
+# DOMAIN comes from .env via docker-compose. With a real domain Caddy
+# obtains and renews the HTTPS certificate automatically (Let's Encrypt);
+# with the "localhost" fallback it serves plain-http for local testing.
+{$DOMAIN:localhost} {
+	encode gzip
+
+	# Candidate master ZIPs can be multi-GB.
+	request_body {
+		max_size 5GB
+	}
+
+	# API: /api/auth/login -> backend /auth/login (prefix stripped).
+	# Keeping the app's routes under /api means SPA page routes and
+	# backend routes can never collide.
+	handle_path /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Everything else: the React build, with the SPA index.html fallback
+	# so client-side routes survive a page refresh.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -2,6 +2,7 @@
 Auth endpoints -- login, logout, and current-user check.
 """
 
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -49,7 +50,9 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         max_age=COOKIE_MAX_AGE_SECONDS,
         httponly=True,   # cookie can't be accessed from JS -- XSS protection
         samesite="lax",
-        # secure=True,  # uncomment this line in production, when serving over HTTPS
+        # HTTPS-only cookie in production (docker-compose sets
+        # COOKIE_SECURE=true); stays off for plain-http local dev.
+        secure=os.getenv("COOKIE_SECURE", "false").strip().lower() in ("1", "true", "yes"),
     )
 
     user.last_login_at = datetime.utcnow()
