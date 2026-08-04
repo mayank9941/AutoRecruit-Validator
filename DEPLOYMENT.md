@@ -107,6 +107,38 @@ git pull
 docker compose up -d --build   # rebuilds changed images, keeps volumes/data
 ```
 
+## 6b. CI/CD (GitHub Actions)
+
+`.github/workflows/deploy.yml` deploys every push to `main`: it first runs
+the frontend production build + backend compile checks, and only if they
+pass, SSHes into the VM and runs `git pull && docker compose up -d --build`.
+
+One-time setup:
+
+1. On the VM, create a deploy key and authorize it:
+
+   ```bash
+   ssh-keygen -t ed25519 -f ~/deploy_key -N "" -C "github-actions"
+   cat ~/deploy_key.pub >> ~/.ssh/authorized_keys
+   cat ~/deploy_key        # copy the ENTIRE private key output
+   rm ~/deploy_key ~/deploy_key.pub
+   ```
+
+2. In GitHub: repo -> Settings -> Secrets and variables -> Actions ->
+   New repository secret, create three secrets:
+
+   | Secret | Value |
+   |---|---|
+   | `VM_HOST` | the VM's static IP |
+   | `VM_USER` | the SSH username on the VM (run `whoami` there) |
+   | `VM_SSH_KEY` | the private key copied above (all lines, including BEGIN/END) |
+
+3. Port 22 must be reachable (GCP's `default-allow-ssh` firewall rule
+   normally covers this).
+
+After that, `git push` to main (or merging a PR) is a deployment. Manual
+re-deploys: Actions tab -> Deploy -> Run workflow.
+
 ## 7. Backups
 
 Nightly DB dump + document sync to a GCS bucket (create the bucket once:
