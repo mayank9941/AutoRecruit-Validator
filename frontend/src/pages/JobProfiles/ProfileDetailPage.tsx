@@ -476,12 +476,20 @@ export const ProfileDetailPage: React.FC = () => {
                           Edit
                         </button>
                         <button
-                          onClick={() => deleteCriterion.mutate(c.id)}
-                          className="text-sm font-semibold px-5 py-2.5 rounded-lg border border-border text-danger flex items-center gap-1.5"
+                          onClick={async () => {
+                            if (!confirm(`Delete this criterion?\n\n"${c.description}"\n\nIts results will disappear from past screening breakdowns; candidates keep their current status until re-screened.`)) return;
+                            try {
+                              await deleteCriterion.mutateAsync(c.id);
+                            } catch (err: any) {
+                              alert(`Could not delete criterion: ${err?.detail || err?.message || 'Unknown error'}`);
+                            }
+                          }}
+                          disabled={deleteCriterion.isPending}
+                          className="text-sm font-semibold px-5 py-2.5 rounded-lg border border-border text-danger flex items-center gap-1.5 disabled:opacity-50"
                           title="Delete criterion"
                         >
                           <Trash2 className="w-4 h-4" />
-                          Delete
+                          {deleteCriterion.isPending ? 'Deleting…' : 'Delete'}
                         </button>
                       </div>
                     </div>

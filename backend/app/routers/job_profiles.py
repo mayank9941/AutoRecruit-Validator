@@ -222,6 +222,15 @@ def delete_criterion(profile_id: str, criterion_id: str, db: Session = Depends(g
     criterion = _get_criterion_or_404(profile_id, criterion_id, db)
     profile = criterion.job_profile
 
+    # Screening results referencing this criterion must go first -- the FK
+    # has no ON DELETE CASCADE, so deleting the criterion alone raises an
+    # IntegrityError (a 500 to the client) for any profile that has
+    # already been screened. Candidates' overall statuses are left as-is:
+    # like editing a criterion, they're stale until the next re-screen.
+    db.query(CriterionEvaluation).filter(
+        CriterionEvaluation.criterion_id == criterion_id
+    ).delete(synchronize_session=False)
+
     db.delete(criterion)
     db.flush()  # so the count below reflects the deletion
 
