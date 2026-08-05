@@ -33,6 +33,7 @@ export function useResetCandidates(profileId?: string) {
     mutationFn: () => api.delete(`/jd/profiles/${profileId}/candidates`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates', profileId] });
+      queryClient.invalidateQueries({ queryKey: ['results', profileId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
     },
   });

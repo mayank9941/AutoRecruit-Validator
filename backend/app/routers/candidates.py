@@ -22,6 +22,7 @@ from app.db.session import get_db
 from app.models.job_profile import JobProfile
 from app.models.candidate import Candidate, CandidateDocument
 from app.models.criterion_evaluation import CriterionEvaluation
+from app.models.screening_run import ScreeningRun
 from app.schemas.candidate import CandidateUploadSummary, CandidateOut
 from app.services.candidate_ingestion import load_candidate_master_data, process_master_zip
 from app.services.auth_service import get_current_hr_user
@@ -220,3 +221,72 @@ def upload_candidates(
 def list_candidates(profile_id: str, db: Session = Depends(get_db)):
     """Lists all candidates uploaded so far for a given Job Profile."""
     return db.query(Candidate).filter(Candidate.job_profile_id == profile_id).all()
+
+
+@router.delete("")
+def delete_all_candidates(profile_id: str, db: Session = Depends(get_db)):
+    """
+    Deletes EVERY candidate for this profile in one shot -- their document
+    rows and files on disk, criterion evaluations, and screening runs --
+    while leaving the profile, its criteria, and the JD itself untouched.
+    Lets HR clear a batch and upload a fresh roster against the same JD
+    without re-uploading and re-editing the JD.
+    """
+    profile = db.query(JobProfile).filter(JobProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail=f"Job Profile '{profile_id}' not found")
+
+    # Deleting candidates out from under an in-progress screening run
+    # would make its background workers fail row by row -- refuse instead.
+    active_run = (
+        db.query(ScreeningRun)
+        .filter(ScreeningRun.job_profile_id == profile_id, ScreeningRun.status == "running")
+        .first()
+    )
+    if active_run:
+        raise HTTPException(
+            status_code=409,
+            detail="A screening run is in progress for this profile. Wait for it to finish before deleting candidates.",
+        )
+
+    candidate_ids = [
+        row[0]
+        for row in db.query(Candidate.id).filter(Candidate.job_profile_id == profile_id).all()
+    ]
+
+    # Collect document folders for best-effort disk cleanup AFTER the DB
+    # commit succeeds (same pattern as profile deletion).
+    document_dirs = set()
+    if candidate_ids:
+        for (file_path,) in (
+            db.query(CandidateDocument.file_path)
+            .filter(CandidateDocument.candidate_id.in_(candidate_ids))
+            .all()
+        ):
+            document_dirs.add(os.path.dirname(file_path))
+
+        # Children first -- the FKs have no ON DELETE CASCADE.
+        db.query(CriterionEvaluation).filter(
+            CriterionEvaluation.candidate_id.in_(candidate_ids)
+        ).delete(synchronize_session=False)
+        db.query(CandidateDocument).filter(
+            CandidateDocument.candidate_id.in_(candidate_ids)
+        ).delete(synchronize_session=False)
+        db.query(Candidate).filter(Candidate.job_profile_id == profile_id).delete(
+            synchronize_session=False
+        )
+
+    # Old runs describe candidates that no longer exist -- clear them too.
+    db.query(ScreeningRun).filter(ScreeningRun.job_profile_id == profile_id).delete(
+        synchronize_session=False
+    )
+
+    db.commit()
+
+    for directory in document_dirs:
+        try:
+            shutil.rmtree(directory)
+        except OSError:
+            pass
+
+    return {"deleted": len(candidate_ids)}

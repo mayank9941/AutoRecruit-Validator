@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useJobProfile, useAddCriterion, useUpdateCriterion, useDeleteCriterion } from '../../hooks/useJobProfile';
 import { useDeleteProfile } from '../../hooks/useJobProfiles';
-import { useCandidates } from '../../hooks/useCandidates';
+import { useCandidates, useResetCandidates } from '../../hooks/useCandidates';
 import { useStartScreening, useScreeningRun } from '../../hooks/useScreening';
 import { useQueryClient } from '@tanstack/react-query';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -37,6 +37,7 @@ export const ProfileDetailPage: React.FC = () => {
   const updateCriterion = useUpdateCriterion(profileId);
   const deleteCriterion = useDeleteCriterion(profileId);
   const startScreening = useStartScreening(profileId);
+  const resetCandidates = useResetCandidates(profileId);
   const deleteProfile = useDeleteProfile();
   const navigate = useNavigate();
 
@@ -634,6 +635,29 @@ export const ProfileDetailPage: React.FC = () => {
                   className="bg-primary text-primary-foreground font-semibold text-sm px-5 py-2.5 rounded-lg flex items-center gap-2 disabled:opacity-50"
                 >
                   <RotateCcw className="w-4 h-4" /> Re-screen all
+                </button>
+                <button
+                  onClick={async () => {
+                    const count = candidates?.length ?? 0;
+                    if (!confirm(
+                      `Delete all ${count} candidate${count === 1 ? '' : 's'} for this JD?\n\n` +
+                      'Their documents and screening results are removed permanently. ' +
+                      'The JD and its criteria stay saved, so you can upload a fresh batch right away.'
+                    )) return;
+                    try {
+                      await resetCandidates.mutateAsync();
+                      setRunId(null);
+                      setStepOverride(2);
+                    } catch (err: any) {
+                      alert(`Could not delete candidates: ${err?.detail || err?.message || 'Unknown error'}`);
+                    }
+                  }}
+                  disabled={resetCandidates.isPending || run?.status === 'running' || uploadPhase === 'uploading'}
+                  className="bg-card border border-danger/30 text-danger font-semibold text-sm px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-danger/5 disabled:opacity-50"
+                  title="Remove every candidate but keep the JD and criteria"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {resetCandidates.isPending ? 'Deleting…' : 'Delete all candidates'}
                 </button>
               </div>
             </div>
