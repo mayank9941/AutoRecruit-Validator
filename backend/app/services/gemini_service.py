@@ -16,6 +16,14 @@ from google.genai import errors as genai_errors
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
+# One place to switch models for every Gemini call this service makes.
+# NOTE: the thinking config is family-specific -- the 2.5 family uses
+# thinking_budget (0 disables thinking: fastest/cheapest), while the 3.x
+# family replaced it with thinking_level ("low"/"high"). Change BOTH
+# together when moving between families.
+GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_GENERATION_CONFIG = {"thinking_config": {"thinking_budget": 0}}
+
 # One shared client for the whole process -- constructing a new
 # genai.Client per call throws away connection reuse, which matters once
 # screening runs make many calls back-to-back (and in parallel).
@@ -232,9 +240,9 @@ def evaluate_criterion_with_gemini(
     for attempt in range(1, max_attempts + 1):
         try:
             response = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt,
-                config={"thinking_config": {"thinking_level": "low"}},
+                config=GEMINI_GENERATION_CONFIG,
             )
             raw = response.text.strip()
 
@@ -573,9 +581,9 @@ def evaluate_criteria_batch_with_gemini(
     for attempt in range(1, max_attempts + 1):
         try:
             response = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt,
-                config={"thinking_config": {"thinking_level": "low"}},
+                config=GEMINI_GENERATION_CONFIG,
             )
             raw = response.text.strip()
 
@@ -623,9 +631,9 @@ def parse_jd_with_gemini(jd_text: str, max_attempts: int = 4) -> dict:
     for attempt in range(1, max_attempts + 1):
         try:
             response = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt,
-                config={"thinking_config": {"thinking_level": "low"}},
+                config=GEMINI_GENERATION_CONFIG,
             )
             raw = response.text.strip()
 
@@ -694,9 +702,9 @@ def transcribe_document_image_with_gemini(
     for attempt in range(1, max_attempts + 1):
         try:
             response = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model=GEMINI_MODEL,
                 contents=[image_part, DOCUMENT_TRANSCRIPTION_IMAGE_PROMPT],
-                config={"thinking_config": {"thinking_level": "low"}},
+                config=GEMINI_GENERATION_CONFIG,
             )
             return (response.text or "").strip()
         except Exception as e:
