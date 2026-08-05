@@ -94,6 +94,7 @@ export const ProfileDetailPage: React.FC = () => {
 
   // Client-side search over the candidates table (step 3).
   const [candidateSearch, setCandidateSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   if (isLoading || candidatesLoading) return <p className="text-sm font-medium text-muted">Loading job profile…</p>;
   if (!profile) return <p className="text-sm font-medium text-danger">Job profile not found.</p>;
@@ -167,6 +168,7 @@ export const ProfileDetailPage: React.FC = () => {
     not_evaluated: 3,
   };
   const filteredCandidates = (candidates ?? [])
+    .filter((c) => statusFilter === 'all' || c.status === statusFilter)
     .filter(
       (c) =>
         !searchTerm ||
@@ -726,20 +728,34 @@ export const ProfileDetailPage: React.FC = () => {
             ) : (
               <>
                 <div className="px-6 py-3 border-b border-border">
-                  <div className="relative max-w-md">
-                    <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={candidateSearch}
-                      onChange={(e) => setCandidateSearch(e.target.value)}
-                      placeholder="Search by name, ID or email…"
-                      className="w-full bg-card border border-border text-foreground text-sm font-normal rounded-lg pl-9 pr-3 py-2.5 placeholder:text-muted"
-                    />
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative max-w-md flex-1 min-w-[220px]">
+                      <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={candidateSearch}
+                        onChange={(e) => setCandidateSearch(e.target.value)}
+                        placeholder="Search by name, ID or email…"
+                        className="w-full bg-card border border-border text-foreground text-sm font-normal rounded-lg pl-9 pr-3 py-2.5 placeholder:text-muted"
+                      />
+                    </div>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="bg-card border border-border text-foreground text-sm font-medium rounded-lg px-3 py-2.5 cursor-pointer"
+                      title="Filter candidates by screening status"
+                    >
+                      <option value="all">All ({candidates.length})</option>
+                      <option value="eligible">Eligible ({statusCounts['eligible'] ?? 0})</option>
+                      <option value="not_evaluated">Not screened yet ({statusCounts['not_evaluated'] ?? 0})</option>
+                      <option value="needs_review">Manual review ({statusCounts['needs_review'] ?? 0})</option>
+                      <option value="not_eligible">Not eligible ({statusCounts['not_eligible'] ?? 0})</option>
+                    </select>
                   </div>
                 </div>
                 {filteredCandidates.length === 0 ? (
                   <div className="px-6 py-8 text-center">
-                    <p className="text-sm font-normal text-foreground">No candidates match your search.</p>
+                    <p className="text-sm font-normal text-foreground">No candidates match your search or filter.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
