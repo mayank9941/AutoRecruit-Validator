@@ -25,6 +25,16 @@ class CriterionEvaluationDetail(BaseModel):
     reasoning: Optional[str] = None
 
 
+class ReviewDocumentOut(BaseModel):
+    """One uploaded document, so the frontend can turn citation names in
+    the criterion breakdown into links that open the actual file."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    document_type: str
+    original_filename: str
+
+
 class CandidateReviewDetail(BaseModel):
     candidate_id: str
     name: Optional[str] = None
@@ -37,6 +47,7 @@ class CandidateReviewDetail(BaseModel):
     overridden_by: Optional[str] = None
     overridden_at: Optional[datetime] = None
     evaluations: List[CriterionEvaluationDetail] = []
+    documents: List[ReviewDocumentOut] = []
 
 
 class OverrideRequest(BaseModel):

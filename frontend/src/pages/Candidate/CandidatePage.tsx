@@ -5,6 +5,27 @@ import { useCandidateReview, useOverrideStatus } from '../../hooks/useReview';
 import { useEvaluateCandidate } from '../../hooks/useScreening';
 import { StatusBadge } from '../../components/StatusBadge';
 import { formatDateTime, formatDate } from '../../lib/format';
+import { BASE_URL } from '../../lib/api';
+import type { ReviewDocument } from '../../types';
+
+// Gemini cites documents by the filename it saw in the page markers; match
+// that citation back to an uploaded document leniently (exact name, then
+// name without extension, then substring) so links survive small wording
+// differences in the citation.
+function findCitedDocument(citation: string | null | undefined, documents?: ReviewDocument[]): ReviewDocument | null {
+  if (!citation || !documents?.length) return null;
+  const cited = citation.trim().toLowerCase();
+  const bare = cited.replace(/\.[^.]+$/, '');
+  return (
+    documents.find((d) => d.original_filename.toLowerCase() === cited) ||
+    documents.find((d) => d.original_filename.toLowerCase().replace(/\.[^.]+$/, '') === bare) ||
+    documents.find((d) => {
+      const name = d.original_filename.toLowerCase();
+      return name.includes(cited) || cited.includes(name.replace(/\.[^.]+$/, ''));
+    }) ||
+    null
+  );
+}
 
 const OVERRIDE_OPTIONS = ['eligible', 'not_eligible', 'needs_review'] as const;
 
@@ -317,11 +338,28 @@ export const CandidatePage: React.FC = () => {
                 {ev.reasoning && (
                   <p className="text-sm text-foreground font-normal leading-relaxed pl-6">{ev.reasoning}</p>
                 )}
-                {(ev.citation_document || ev.citation_page) && (
-                  <p className="text-sm font-medium text-primary pl-6">
-                    Source: {ev.citation_document || 'document'}{ev.citation_page ? `, page ${ev.citation_page}` : ''}
-                  </p>
-                )}
+                {(ev.citation_document || ev.citation_page) && (() => {
+                  const citedDoc = findCitedDocument(ev.citation_document, review.documents);
+                  return (
+                    <p className="text-sm font-medium text-primary pl-6">
+                      Source:{' '}
+                      {citedDoc ? (
+                        <a
+                          href={`${BASE_URL}/jd/profiles/${profileId}/candidates/${candidateId}/documents/${citedDoc.id}/file`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline underline-offset-2 hover:text-primary/70"
+                          title="Open this document in a new tab"
+                        >
+                          {ev.citation_document || citedDoc.original_filename}
+                        </a>
+                      ) : (
+                        ev.citation_document || 'document'
+                      )}
+                      {ev.citation_page ? `, page ${ev.citation_page}` : ''}
+                    </p>
+                  );
+                })()}
                 {ev.criterion_type === 'skill' && typeof ev.match_percentage === 'number' && !ev.is_essential && (
                   <p className="text-xs text-muted font-normal pl-6">
                     This score is for information only — it does not affect eligibility.

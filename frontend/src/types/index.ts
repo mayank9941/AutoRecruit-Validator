@@ -145,6 +145,12 @@ export interface CriterionEvaluationDetail {
   reasoning?: string | null;
 }
 
+export interface ReviewDocument {
+  id: string;
+  document_type: string;
+  original_filename: string;
+}
+
 export interface CandidateReviewDetail {
   candidate_id: string;
   name?: string | null;
@@ -162,6 +168,7 @@ export interface CandidateReviewDetail {
   overridden_by?: string | null;
   overridden_at?: string | null;
   evaluations: CriterionEvaluationDetail[];
+  documents?: ReviewDocument[];
 }
 
 export interface OverrideRequest {

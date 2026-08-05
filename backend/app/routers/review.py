@@ -6,20 +6,23 @@ really) are shown with a full criterion-by-criterion breakdown, so HR can
 make the final call and override the status if needed.
 """
 
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.job_profile import JobProfile
-from app.models.candidate import Candidate
+from app.models.candidate import Candidate, CandidateDocument
 from app.models.criterion_evaluation import CriterionEvaluation
 from app.schemas.review import (
     CandidateReviewDetail,
     CriterionEvaluationDetail,
     OverrideRequest,
     OverrideResponse,
+    ReviewDocumentOut,
 )
 from app.services.auth_service import get_current_hr_user
 
@@ -90,6 +93,42 @@ def get_candidate_review(profile_id: str, candidate_id: str, db: Session = Depen
         overridden_by=candidate.overridden_by,
         overridden_at=candidate.overridden_at,
         evaluations=evaluation_details,
+        documents=[ReviewDocumentOut.model_validate(d) for d in candidate.documents],
+    )
+
+
+@router.get("/documents/{document_id}/file")
+def get_candidate_document_file(
+    profile_id: str, candidate_id: str, document_id: str, db: Session = Depends(get_db)
+):
+    """
+    Serves a candidate's uploaded document (inline, so PDFs open straight
+    in a browser tab). This is what citation links in the Manual Review
+    breakdown point at -- HR clicks the cited document name and sees the
+    actual evidence next to the AI's reasoning.
+    """
+    _get_candidate_or_404(profile_id, candidate_id, db)
+
+    document = (
+        db.query(CandidateDocument)
+        .filter(
+            CandidateDocument.id == document_id,
+            CandidateDocument.candidate_id == candidate_id,
+        )
+        .first()
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail=f"Document '{document_id}' not found for this candidate")
+    if not os.path.isfile(document.file_path):
+        raise HTTPException(
+            status_code=404,
+            detail="The document's file is missing on the server (it may have been deleted).",
+        )
+
+    return FileResponse(
+        document.file_path,
+        filename=document.original_filename,
+        content_disposition_type="inline",
     )
 
 
