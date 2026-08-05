@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  Edit2, Trash2, Plus, Save, BarChart3, Users, RotateCcw,
+  Edit2, Trash2, Plus, Save, BarChart3, Users, RotateCcw, Play,
   ArrowRight, ArrowLeft, Check, UploadCloud, Loader2, AlertTriangle, Search,
 } from 'lucide-react';
 import { useJobProfile, useAddCriterion, useUpdateCriterion, useDeleteCriterion } from '../../hooks/useJobProfile';
@@ -629,10 +629,22 @@ export const ProfileDetailPage: React.FC = () => {
                 >
                   <UploadCloud className="w-4 h-4" /> Upload more
                 </button>
+                {(statusCounts['not_evaluated'] ?? 0) > 0 && (
+                  <button
+                    onClick={() => handleStartScreening(false)}
+                    disabled={startScreening.isPending || run?.status === 'running' || uploadPhase === 'uploading'}
+                    className="bg-primary text-primary-foreground font-semibold text-sm px-5 py-2.5 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                    title="Screen only candidates without a result yet — candidates who already have one are left untouched"
+                  >
+                    <Play className="w-4 h-4" />
+                    Screen unscreened ({statusCounts['not_evaluated']})
+                  </button>
+                )}
                 <button
                   onClick={() => handleStartScreening(true)}
                   disabled={startScreening.isPending || run?.status === 'running' || uploadPhase === 'uploading'}
-                  className="bg-primary text-primary-foreground font-semibold text-sm px-5 py-2.5 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                  className="bg-card border border-border text-foreground font-semibold text-sm px-5 py-2.5 rounded-lg flex items-center gap-2 hover:border-primary/40 disabled:opacity-50"
+                  title="Re-evaluate every candidate, including those that already have a result (e.g. after editing criteria)"
                 >
                   <RotateCcw className="w-4 h-4" /> Re-screen all
                 </button>
