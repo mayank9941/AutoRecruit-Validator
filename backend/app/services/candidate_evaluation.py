@@ -25,7 +25,7 @@ from app.models.candidate import Candidate, CandidateDocument
 from app.models.criterion_evaluation import CriterionEvaluation
 from app.services.gemini_service import evaluate_criteria_batch_with_gemini
 from app.services.pdf_extraction import extract_marked_pdf_text_with_ocr, pdf_text_is_meaningful
-from app.services.age_relaxation import evaluate_age_criterion
+from app.services.age_relaxation import evaluate_age_criterion, parse_age_limits_from_text
 
 
 def build_document_context(documents: list[CandidateDocument]) -> str:
@@ -169,11 +169,17 @@ def evaluate_candidate(db, candidate: Candidate, profile: JobProfile) -> list[Cr
 
         if criterion.type == "age":
             # Rule-based, no Gemini -- age is a calculable fact.
+            # The criterion's CURRENT description is the source of truth
+            # for the limits, so HR edits take effect on the next screen;
+            # the profile's JD-parse-time numbers are only the fallback
+            # when the text has no parseable limits.
+            desc_min, desc_max = parse_age_limits_from_text(criterion.description)
+            limits_from_description = desc_min is not None or desc_max is not None
             result = evaluate_age_criterion(
                 dob_str=candidate.dob,
                 normalized_category=candidate.normalized_category,
-                base_age_min=profile.base_age_min,
-                base_age_max=profile.base_age_max,
+                base_age_min=desc_min if limits_from_description else profile.base_age_min,
+                base_age_max=desc_max if limits_from_description else profile.base_age_max,
                 age_relaxation_rules=age_relaxation_rules_for_lookup,
                 as_of=date.today(),
             )

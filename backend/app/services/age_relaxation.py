@@ -138,6 +138,67 @@ def compute_age(dob_str: str, as_of: date) -> int | None:
     return age
 
 
+def parse_age_limits_from_text(text: str) -> tuple[int | None, int | None]:
+    """
+    Extracts (min_age, max_age) from an age criterion's DESCRIPTION, so
+    that HR edits to the criterion text actually drive the age check --
+    the profile's stored base_age_min/max are only a fallback for
+    descriptions with no parseable limits.
+
+    Handles the common JD phrasings:
+        "between 21 and 40 years" / "21-40 years" / "21 to 40 years"
+        "not exceeding 40 years" / "not more than 40" / "maximum age 40"
+        "upper age limit of 40" / "below 40 years"
+        "minimum age 18" / "not less than 18" / "at least 18 years"
+
+    Returns (None, None) when the text contains no recognizable limit.
+    """
+    if not text:
+        return (None, None)
+    t = text.lower()
+
+    # Explicit range first: "between 21 and 40", "21-40 years", "21 to 40 yrs"
+    m = re.search(r"between\s+(\d{2})\s+(?:and|to|&)\s+(\d{2})", t)
+    if not m:
+        m = re.search(r"(\d{2})\s*(?:-|–|—|to)\s*(\d{2})\s*(?:years?|yrs?)", t)
+    if m:
+        lo, hi = int(m.group(1)), int(m.group(2))
+        if lo < hi:
+            return (lo, hi)
+
+    min_age = None
+    max_age = None
+
+    m = re.search(
+        r"(?:not\s+(?:be\s+)?(?:exceed(?:ing)?|more\s+than|above|over)"
+        r"|max(?:imum)?\.?(?:\s+age)?(?:\s+limit)?(?:\s+of)?(?:\s+is)?"
+        r"|upper\s+age\s+limit(?:\s+of)?(?:\s+is)?)"
+        r"\s*[:\-]?\s*(\d{2})",
+        t,
+    )
+    if m:
+        max_age = int(m.group(1))
+    else:
+        # "below 40" / "under 40" is strict: a candidate of exactly 40
+        # fails, so the inclusive maximum is 39.
+        m = re.search(r"(?:below|under)\s+(\d{2})\s*(?:years?|yrs?)", t)
+        if m:
+            max_age = int(m.group(1)) - 1
+
+    m = re.search(
+        r"(?:not\s+(?:be\s+)?(?:below|less\s+than)"
+        r"|min(?:imum)?\.?(?:\s+age)?(?:\s+limit)?(?:\s+of)?(?:\s+is)?"
+        r"|at\s+least"
+        r"|lower\s+age\s+limit(?:\s+of)?(?:\s+is)?)"
+        r"\s*[:\-]?\s*(\d{2})",
+        t,
+    )
+    if m:
+        min_age = int(m.group(1))
+
+    return (min_age, max_age)
+
+
 def evaluate_age_criterion(
     dob_str: str,
     normalized_category: str,
