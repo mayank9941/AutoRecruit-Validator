@@ -17,12 +17,16 @@ from google.genai import errors as genai_errors
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # One place to switch models for every Gemini call this service makes.
-# NOTE: the thinking config is family-specific -- the 2.5 family uses
-# thinking_budget (0 disables thinking: fastest/cheapest), while the 3.x
-# family replaced it with thinking_level ("low"/"high"). Change BOTH
-# together when moving between families.
-GEMINI_MODEL = "gemini-2.5-flash"
-GEMINI_GENERATION_CONFIG = {"thinking_config": {"thinking_budget": 0}}
+# NOTE: the thinking config is family-specific -- the 2.5 family used
+# thinking_budget (0 disables thinking), while the 3.x family replaced it
+# with thinking_level ("low"/"high"). Change BOTH together when moving
+# between families.
+#
+# gemini-2.5-flash was tried (Aug 2026) and is NOT available on this
+# account: Google returns 404 "no longer available to new users" -- the
+# 2.5 family is closed to accounts created after the 3.x launch.
+GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_GENERATION_CONFIG = {"thinking_config": {"thinking_level": "low"}}
 
 # One shared client for the whole process -- constructing a new
 # genai.Client per call throws away connection reuse, which matters once
