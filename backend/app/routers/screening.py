@@ -23,6 +23,7 @@ from app.models.candidate import Candidate
 from app.models.screening_run import ScreeningRun
 from app.schemas.screening import CandidateEvaluationResult, ScreeningRunOut
 from app.services.candidate_evaluation import evaluate_candidate
+from app.services.gemini_service import GeminiParsingError
 from app.services.auth_service import get_current_hr_user
 
 single_router = APIRouter(
@@ -73,7 +74,23 @@ def evaluate_single_candidate(profile_id: str, candidate_id: str, db: Session = 
             ),
         )
 
-    evaluations = evaluate_candidate(db, candidate, profile)
+    # Surface failures as readable messages instead of a bare 500 -- the
+    # batch path has its own safety net, but this endpoint reports straight
+    # back to the UI, so HR should see WHY a screening attempt failed.
+    try:
+        evaluations = evaluate_candidate(db, candidate, profile)
+    except GeminiParsingError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Screening failed while calling Gemini: {e}",
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Screening failed unexpectedly ({type(e).__name__}): {e}",
+        )
     db.commit()
 
     for e in evaluations:
