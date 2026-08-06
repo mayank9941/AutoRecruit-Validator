@@ -15,7 +15,7 @@ import os
 import shutil
 import uuid
 
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -25,6 +25,7 @@ from app.models.criterion_evaluation import CriterionEvaluation
 from app.models.screening_run import ScreeningRun
 from app.schemas.candidate import CandidateUploadSummary, CandidateOut
 from app.services.candidate_ingestion import load_candidate_master_data, process_master_zip
+from app.services.age_relaxation import normalize_candidate_category
 from app.services.auth_service import get_current_hr_user
 
 router = APIRouter(
@@ -215,6 +216,126 @@ def upload_candidates(
         corrupt_zip=status_counts["corrupt_zip"],
         candidates=created_candidates,
     )
+
+
+@router.post("/single", response_model=CandidateOut)
+def add_single_candidate(
+    profile_id: str,
+    external_id: str = Form(...),
+    name: str = Form(None),
+    email: str = Form(None),
+    phone: str = Form(None),
+    dob: str = Form(None),
+    gender: str = Form(None),
+    category: str = Form(None),
+    declared_info: str = Form(None),
+    documents: list[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Adds ONE candidate by hand -- for walk-ins, late applications, or
+    fixing a single record without re-uploading the whole roster.
+
+    `declared_info` is free text of whatever the candidate declared
+    (qualifications, experience, etc.); it lands in raw_excel_data, so
+    screening's stage-1 (declared vs JD) sees it just like an Excel row.
+    Same upsert rule as the bulk upload: an existing candidate with this
+    external_id is REPLACED (fresh data + documents, old results wiped).
+    """
+    profile = db.query(JobProfile).filter(JobProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail=f"Job Profile '{profile_id}' not found")
+
+    external_id = (external_id or "").strip()
+    if not external_id:
+        raise HTTPException(status_code=422, detail="Candidate ID (external_id) is required")
+
+    # Declared application data -- what screening's stage-1 checks.
+    raw_data = {"Id.": external_id}
+    for key, value in (
+        ("Name", name), ("Email", email), ("Phone", phone), ("DOB", dob),
+        ("Gender", gender), ("Category", category), ("Declared Information", declared_info),
+    ):
+        if value and value.strip():
+            raw_data[key] = value.strip()
+
+    files = [f for f in (documents or []) if f and f.filename]
+
+    doc_rows: list[tuple[str, str, str]] = []
+    if files:
+        candidate_dir = os.path.join(UPLOAD_DIR, "manual", str(uuid.uuid4()))
+        os.makedirs(candidate_dir, exist_ok=True)
+        for i, f in enumerate(files, start=1):
+            original_filename = os.path.basename(f.filename)
+            local_path = os.path.join(candidate_dir, original_filename)
+            with open(local_path, "wb") as out:
+                shutil.copyfileobj(f.file, out, length=1024 * 1024)
+            doc_rows.append((f"manual_document_{i}", local_path, original_filename))
+
+    ingestion_status = "documents_complete" if doc_rows else "no_documents_found"
+    normalized = normalize_candidate_category(category) if category else None
+
+    # Same upsert-by-external_id semantics as the bulk upload.
+    existing = (
+        db.query(Candidate)
+        .filter(Candidate.job_profile_id == profile.id, Candidate.external_id == external_id)
+        .order_by(Candidate.created_at)
+        .all()
+    )
+    if existing:
+        candidate = existing[0]
+        for duplicate in existing[1:]:
+            _delete_candidate_screening_data(db, duplicate.id)
+            db.delete(duplicate)
+        _delete_candidate_screening_data(db, candidate.id)
+
+        candidate.name = name
+        candidate.email = email
+        candidate.phone = phone
+        candidate.dob = dob
+        candidate.gender = gender
+        candidate.raw_category = category
+        candidate.normalized_category = normalized
+        candidate.raw_excel_data = raw_data
+        candidate.ingestion_status = ingestion_status
+        candidate.computed_status = None
+        candidate.status = "not_evaluated"
+        candidate.status_overridden = False
+        candidate.override_reason = None
+        candidate.overridden_by = None
+        candidate.overridden_at = None
+        candidate.documents.clear()
+        db.flush()
+    else:
+        candidate = Candidate(
+            job_profile_id=profile.id,
+            external_id=external_id,
+            name=name,
+            email=email,
+            phone=phone,
+            dob=dob,
+            gender=gender,
+            raw_category=category,
+            normalized_category=normalized,
+            raw_excel_data=raw_data,
+            ingestion_status=ingestion_status,
+        )
+        db.add(candidate)
+        db.flush()
+
+    for doc_type, local_path, original_filename in doc_rows:
+        # Text extraction deferred to the first screening run, same as bulk.
+        db.add(CandidateDocument(
+            candidate_id=candidate.id,
+            document_type=doc_type,
+            file_path=local_path,
+            original_filename=original_filename,
+            extracted_text=None if local_path.lower().endswith(".pdf") else "",
+        ))
+
+    db.commit()
+    db.refresh(candidate)
+    return candidate
 
 
 @router.get("", response_model=list[CandidateOut])

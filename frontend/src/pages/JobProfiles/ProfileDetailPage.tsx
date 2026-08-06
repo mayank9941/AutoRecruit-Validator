@@ -11,6 +11,7 @@ import { useStartScreening, useScreeningRun } from '../../hooks/useScreening';
 import { useQueryClient } from '@tanstack/react-query';
 import { StatusBadge } from '../../components/StatusBadge';
 import { CandidateUploadPanel } from '../../components/CandidateUploadPanel';
+import { AddCandidateModal } from '../../components/AddCandidateModal';
 import type { Criterion } from '../../types';
 
 const CRITERION_TYPES = ['age', 'education', 'experience', 'skill', 'other'];
@@ -95,6 +96,7 @@ export const ProfileDetailPage: React.FC = () => {
   // Client-side search over the candidates table (step 3).
   const [candidateSearch, setCandidateSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [addCandidateOpen, setAddCandidateOpen] = useState(false);
 
   if (isLoading || candidatesLoading) return <p className="text-sm font-medium text-muted">Loading job profile…</p>;
   if (!profile) return <p className="text-sm font-medium text-danger">Job profile not found.</p>;
@@ -631,6 +633,13 @@ export const ProfileDetailPage: React.FC = () => {
                 >
                   <UploadCloud className="w-4 h-4" /> Upload more
                 </button>
+                <button
+                  onClick={() => setAddCandidateOpen(true)}
+                  className="bg-card border border-border text-foreground font-semibold text-sm px-5 py-2.5 rounded-lg flex items-center gap-2 hover:border-primary/40"
+                  title="Manually add one candidate (walk-in / late application)"
+                >
+                  <Plus className="w-4 h-4" /> Add candidate
+                </button>
                 {(statusCounts['not_evaluated'] ?? 0) > 0 && (
                   <button
                     onClick={() => handleStartScreening(false)}
@@ -799,6 +808,10 @@ export const ProfileDetailPage: React.FC = () => {
           </div>
 
         </div>
+      )}
+
+      {addCandidateOpen && (
+        <AddCandidateModal profileId={profileId} onClose={() => setAddCandidateOpen(false)} />
       )}
     </div>
   );
