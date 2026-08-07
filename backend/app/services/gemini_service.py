@@ -453,6 +453,10 @@ GENERAL RULES (every criterion):
   all.
 - Each entry's citation MUST point to the specific document and page where
   you found the supporting (or contradicting) evidence for THAT criterion.
+- When your reasoning draws on MORE THAN ONE document (e.g. summing
+  experience across several certificates), name EVERY document you used in
+  the reasoning text, using its exact DOCUMENT name from the markers -- the
+  citation field fits only one, so the reasoning must credit the rest.
 """
 
 

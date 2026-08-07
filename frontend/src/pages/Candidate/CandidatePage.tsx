@@ -27,6 +27,20 @@ function findCitedDocument(citation: string | null | undefined, documents?: Revi
   );
 }
 
+// A criterion's reasoning often mentions SEVERAL documents (e.g. an
+// experience total summed across multiple certificates) while the citation
+// field only holds one. Find every uploaded document whose filename appears
+// in the reasoning text, so each can get its own link.
+function findReferencedDocuments(text: string | null | undefined, documents?: ReviewDocument[]): ReviewDocument[] {
+  if (!text || !documents?.length) return [];
+  const t = text.toLowerCase();
+  return documents.filter((d) => {
+    const name = d.original_filename.toLowerCase();
+    const bare = name.replace(/\.[^.]+$/, '');
+    return t.includes(name) || (bare.length >= 4 && t.includes(bare));
+  });
+}
+
 const OVERRIDE_OPTIONS = ['eligible', 'not_eligible', 'needs_review'] as const;
 
 const RESULT_ICON: Record<string, React.ReactNode> = {
@@ -344,26 +358,51 @@ export const CandidatePage: React.FC = () => {
                 {ev.reasoning && (
                   <p className="text-sm text-foreground font-normal leading-relaxed pl-6">{ev.reasoning}</p>
                 )}
-                {(ev.citation_document || ev.citation_page) && (() => {
+                {(() => {
+                  const docFileUrl = (docId: string) =>
+                    `${BASE_URL}/jd/profiles/${profileId}/candidates/${candidateId}/documents/${docId}/file`;
                   const citedDoc = findCitedDocument(ev.citation_document, review.documents);
+                  const alsoReferenced = findReferencedDocuments(ev.reasoning, review.documents)
+                    .filter((d) => d.id !== citedDoc?.id);
                   return (
-                    <p className="text-sm font-medium text-primary pl-6">
-                      Source:{' '}
-                      {citedDoc ? (
-                        <a
-                          href={`${BASE_URL}/jd/profiles/${profileId}/candidates/${candidateId}/documents/${citedDoc.id}/file`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline underline-offset-2 hover:text-primary/70"
-                          title="Open this document in a new tab"
-                        >
-                          {ev.citation_document || citedDoc.original_filename}
-                        </a>
-                      ) : (
-                        ev.citation_document || 'document'
+                    <>
+                      {(ev.citation_document || ev.citation_page) && (
+                        <p className="text-sm font-medium text-primary pl-6">
+                          Source:{' '}
+                          {citedDoc ? (
+                            <a
+                              href={docFileUrl(citedDoc.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline underline-offset-2 hover:text-primary/70"
+                              title="Open this document in a new tab"
+                            >
+                              {ev.citation_document || citedDoc.original_filename}
+                            </a>
+                          ) : (
+                            ev.citation_document || 'document'
+                          )}
+                          {ev.citation_page ? `, page ${ev.citation_page}` : ''}
+                        </p>
                       )}
-                      {ev.citation_page ? `, page ${ev.citation_page}` : ''}
-                    </p>
+                      {alsoReferenced.length > 0 && (
+                        <p className="text-sm font-medium text-primary pl-6 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="text-muted font-normal">Documents mentioned in reasoning:</span>
+                          {alsoReferenced.map((d) => (
+                            <a
+                              key={d.id}
+                              href={docFileUrl(d.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline underline-offset-2 hover:text-primary/70"
+                              title="Open this document in a new tab"
+                            >
+                              {d.original_filename}
+                            </a>
+                          ))}
+                        </p>
+                      )}
+                    </>
                   );
                 })()}
                 {ev.criterion_type === 'skill' && typeof ev.match_percentage === 'number' && !ev.is_essential && (
