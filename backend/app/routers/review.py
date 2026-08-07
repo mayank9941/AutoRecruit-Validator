@@ -83,6 +83,7 @@ def get_candidate_review(profile_id: str, candidate_id: str, db: Session = Depen
 
     return CandidateReviewDetail(
         candidate_id=candidate.id,
+        external_id=candidate.external_id,
         name=candidate.name,
         email=candidate.email,
         ingestion_status=candidate.ingestion_status,

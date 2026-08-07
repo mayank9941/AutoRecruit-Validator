@@ -88,7 +88,13 @@ export const CandidatePage: React.FC = () => {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="font-bold text-2xl text-foreground">{review.name || 'Unnamed candidate'}</h1>
-            <p className="text-sm text-foreground font-normal mt-1">{review.email || '—'}</p>
+            <p className="text-sm text-foreground font-normal mt-1">
+              {review.external_id && (
+                <span className="font-semibold text-primary">ID: {review.external_id}</span>
+              )}
+              {review.external_id && review.email ? ' · ' : ''}
+              {review.email || (review.external_id ? '' : '—')}
+            </p>
           </div>
           <div className="flex flex-col items-end gap-1.5">
             <StatusBadge status={review.status} className="text-sm px-3 py-1.5" />

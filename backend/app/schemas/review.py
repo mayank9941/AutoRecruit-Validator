@@ -37,6 +37,7 @@ class ReviewDocumentOut(BaseModel):
 
 class CandidateReviewDetail(BaseModel):
     candidate_id: str
+    external_id: Optional[str] = None
     name: Optional[str] = None
     email: Optional[str] = None
     ingestion_status: str

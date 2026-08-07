@@ -781,7 +781,10 @@ export const ProfileDetailPage: React.FC = () => {
                       <tbody>
                         {filteredCandidates.map((c, i) => (
                           <tr key={c.id} className={`border-b border-border/60 hover:bg-accent/40 transition-colors ${i % 2 !== 0 ? 'bg-accent/20' : ''}`}>
-                            <td className="py-3 px-5 font-medium text-foreground">{c.name || c.external_id}</td>
+                            <td className="py-3 px-5">
+                              <p className="font-medium text-foreground">{c.name || 'Unnamed candidate'}</p>
+                              <p className="text-xs text-muted font-normal mt-0.5">{c.external_id}</p>
+                            </td>
                             <td className="py-3 px-5 font-normal text-foreground">{c.email || '—'}</td>
                             <td className="py-3 px-5"><StatusBadge status={c.ingestion_status} /></td>
                             <td className="py-3 px-5">
